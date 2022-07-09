@@ -216,7 +216,7 @@ def get_readable_message():
         bmsg += f"\n<b>DL:</b> {get_readable_file_size(dlspeed_bytes)}/s | <b>UL:</b> {get_readable_file_size(upspeed_bytes)}/s"
         
         buttons = ButtonMaker()
-        buttons.sbutton("Statistics", str(THREE))
+        buttons.sbutton("Stats", str(THREE))
         sbutton = InlineKeyboardMarkup(buttons.build_menu(1))
         
         if STATUS_LIMIT is not None and tasks > STATUS_LIMIT:
@@ -382,7 +382,7 @@ Bot Uptime: {currentTime}
 T-DL: {recv} | T-UP: {sent}
 CPU: {cpu}% | RAM: {mem}%
 Disk: {total} | Free: {free}
-Used: [{disk}%] is {used}
+Used: {disk}% = {used}
 
 Made with ❤️ by Adhil
 """
