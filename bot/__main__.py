@@ -62,7 +62,7 @@ def stats(update, context):
             f'<b>Memory Total:</b> {mem_t}\n'\
             f'<b>Memory Free:</b> {mem_a}\n'\
             f'<b>Memory Used:</b> {mem_u}\n'
-    update.effective_message.reply_photo(STATS_IMG_URL, stats, context.bot, update.message)
+    effective_message.reply_photo(STATS_IMG_URL, stats, context.bot, update.message)
 
 
 def start(update, context):
