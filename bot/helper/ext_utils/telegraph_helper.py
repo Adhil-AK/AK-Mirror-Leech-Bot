@@ -72,10 +72,10 @@ class TelegraphHelper:
                     nxt_page += 1
             self.edit_page(
                 path = path[prev_page],
-                title = 'AK-MIRROR-BOT Torrent Search',
+                title = 'AK-Mirror-Leech-BOT Torrent Search',
                 content=content
             )
         return
 
 
-telegraph=TelegraphHelper('AK MIRROR BOT', 'https://t.me/AKLEECHZONE')
+telegraph=TelegraphHelper('AK MIRROR LEECH BOT', 'https://t.me/AK_Mirror_Leech_Bot')
