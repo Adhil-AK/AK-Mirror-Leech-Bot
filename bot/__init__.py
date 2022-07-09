@@ -134,6 +134,8 @@ SUDO_USERS = set()
 AS_DOC_USERS = set()
 AS_MEDIA_USERS = set()
 EXTENSION_FILTER = set()
+LEECH_LOG = set()	
+MIRROR_LOGS = set()
 
 try:
     aid = getConfig('AUTHORIZED_CHATS')
@@ -151,6 +153,20 @@ except:
     pass
 try:
     fx = getConfig('EXTENSION_FILTER')
+except:
+    pass
+try:
+    aid = getConfig('LEECH_LOG')
+    aid = aid.split(' ')
+    for _id in aid:
+        LEECH_LOG.add(int(_id))
+except:
+    pass
+try:
+    aid = getConfig('MIRROR_LOGS')
+    aid = aid.split(' ')
+    for _id in aid:
+        MIRROR_LOGS.add(int(_id))
     if len(fx) > 0:
         fx = fx.split()
         for x in fx:
@@ -478,6 +494,32 @@ try:
         raise KeyError
 except:
     laravel_session = None
+try:
+    FSUB = getConfig('FSUB')
+    FSUB = FSUB.lower() == 'true'
+except:
+    FSUB = False
+    LOGGER.info("Force Subscribe is disabled")
+try:
+    CHANNEL_USERNAME = getConfig("CHANNEL_USERNAME")
+    if len(CHANNEL_USERNAME) == 0:
+        raise KeyError
+except KeyError:
+    log_info("CHANNEL_USERNAME not provided! Using default @AK_Mirror_Leech_Bot")
+    CHANNEL_USERNAME = "AK_Mirror_Leech_Bot"
+try:
+    FSUB_CHANNEL_ID = getConfig("FSUB_CHANNEL_ID")
+    if len(FSUB_CHANNEL_ID) == 0:
+        raise KeyError
+    FSUB_CHANNEL_ID = int(FSUB_CHANNEL_ID)
+except KeyError:
+    log_info("CHANNEL_ID is not provided! Using default id of @AK_Mirror_Leech_Bot")
+    FSUB_CHANNEL_ID = -1001749675401
+try:
+    BOT_PM = getConfig('BOT_PM')
+    BOT_PM = BOT_PM.lower() == 'true'
+except KeyError:
+    BOT_PM = False
 try:
     TOKEN_PICKLE_URL = getConfig('TOKEN_PICKLE_URL')
     if len(TOKEN_PICKLE_URL) == 0:
