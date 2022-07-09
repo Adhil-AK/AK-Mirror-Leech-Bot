@@ -4,7 +4,7 @@ from subprocess import run as srun, check_output
 from psutil import disk_usage, cpu_percent, swap_memory, cpu_count, virtual_memory, net_io_counters, boot_time
 from time import time
 from sys import executable
-from telegram import InlineKeyboardMarkup
+from telegram import InlineKeyboardMarkup, ParseMode
 from telegram.ext import CommandHandler
 
 from bot import bot, STATS_IMG_URL, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, alive, app, main_loop
@@ -63,7 +63,7 @@ def stats(update, context):
             f'<b>Memory Total:</b> {mem_t}\n'\
             f'<b>Memory Free:</b> {mem_a}\n'\
             f'<b>Memory Used:</b> {mem_u}\n'
-    update.effective_message.reply_photo(STATS_IMG_URL, stats, context.bot, update.message)
+    update.effective_message.reply_photo(STATS_IMG_URL, stats, context.bot, update.message, parse_mode=ParseMode.HTML)
 
 
 def start(update, context):
