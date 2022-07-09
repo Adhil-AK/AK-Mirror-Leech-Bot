@@ -8,7 +8,6 @@ from subprocess import run as srun, check_output
 from time import time
 from math import ceil
 from re import split as re_split, I
-
 from .exceptions import NotSupportedExtractionArchive
 from bot import aria2, app, LOGGER, DOWNLOAD_DIR, get_client, TG_SPLIT_SIZE, EQUAL_SPLITS, STORAGE_THRESHOLD
 
@@ -18,7 +17,6 @@ ARCH_EXT = [".tar.bz2", ".tar.gz", ".bz2", ".gz", ".tar.xz", ".tar", ".tbz2", ".
                 ".zip", ".7z", ".z", ".rar", ".iso", ".wim", ".cab", ".apm", ".arj", ".chm",
                 ".cpio", ".cramfs", ".deb", ".dmg", ".fat", ".hfs", ".lzh", ".lzma", ".mbr",
                 ".msi", ".mslz", ".nsis", ".ntfs", ".rpm", ".squashfs", ".udf", ".vhd", ".xar"]
-
 
 def clean_download(path: str):
     if ospath.exists(path):
@@ -119,7 +117,7 @@ def take_ss(video_file):
 
     if status.returncode != 0 or not ospath.lexists(des_dir):
         return None
-
+    
     with Image.open(des_dir) as img:
         img.convert("RGB").save(des_dir, "JPEG")
 
@@ -131,20 +129,20 @@ def split_file(path, size, file_, dirpath, split_size, start_time=0, i=1, inLoop
         split_size = ceil(size/parts) + 1000
     if file_.upper().endswith(VIDEO_SUFFIXES):
         base_name, extension = ospath.splitext(file_)
-        split_size = split_size - 3000000
+        split_size = split_size - 5000000
         while i <= parts :
             parted_name = "{}.part{}{}".format(str(base_name), str(i).zfill(3), str(extension))
             out_path = ospath.join(dirpath, parted_name)
             srun(["new-api", "-hide_banner", "-loglevel", "error", "-ss", str(start_time),
-                  "-i", path, "-fs", str(split_size), "-map", "0", "-c", "copy", out_path])
+                  "-i", path, "-fs", str(split_size), "-map", "0", "-map_chapters", "-1", "-c", "copy", out_path])
             out_size = get_path_size(out_path)
             if out_size > 2097152000:
                 dif = out_size - 2097152000
-                split_size = split_size - dif + 3000000
+                split_size = split_size - dif + 5000000
                 osremove(out_path)
                 return split_file(path, size, file_, dirpath, split_size, start_time, i, True)
             lpd = get_media_info(out_path)[0]
-            if lpd <= 4 or out_size < 1000000:
+            if lpd <= 4:
                 osremove(out_path)
                 break
             start_time += lpd - 3
@@ -154,7 +152,7 @@ def split_file(path, size, file_, dirpath, split_size, start_time=0, i=1, inLoop
         srun(["split", "--numeric-suffixes=1", "--suffix-length=3", f"--bytes={split_size}", path, out_path])
 
 def get_media_info(path):
-
+    
     result = check_output(["ffprobe", "-hide_banner", "-loglevel", "error", "-print_format",
                            "json", "-show_format", path]).decode('utf-8')
 
@@ -177,4 +175,4 @@ def get_media_info(path):
         title = None
         artist = None
 
-    return duration, artist, title 
+    return duration, artist, title
