@@ -21,7 +21,6 @@ from .modules import authorize, list, cancel_mirror, mirror_status, mirror, clon
 
 
 def stats(update, context):
-    photo = 'STATS_IMG_URL'
     if ospath.exists('.git'):
         last_commit = check_output(["git log -1 --date=short --pretty=format:'%cd <b>From</b> %cr'"], shell=True).decode()
     else:
@@ -61,7 +60,7 @@ def stats(update, context):
             f'<b>Memory Total:</b> {mem_t}\n'\
             f'<b>Memory Free:</b> {mem_a}\n'\
             f'<b>Memory Used:</b> {mem_u}\n'
-    sendMessage.reply_photo(stats, context.bot, update.message)
+    update.effective_message.reply_photo(photo="STATS_IMG_URL", stats, context.bot, update.message)
 
 
 def start(update, context):
