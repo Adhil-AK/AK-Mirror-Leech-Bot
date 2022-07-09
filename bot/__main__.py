@@ -8,6 +8,7 @@ from telegram import InlineKeyboardMarkup
 from telegram.ext import CommandHandler
 
 from bot import bot, STATS_IMG_URL, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, alive, app, main_loop
+from bot.helper.telegram_helper.message_utils import *
 from .helper.ext_utils.fs_utils import start_cleanup, clean_all, exit_clean_up
 from .helper.ext_utils.telegraph_helper import telegraph
 from .helper.ext_utils.bot_utils import get_readable_file_size, get_readable_time
@@ -62,7 +63,7 @@ def stats(update, context):
             f'<b>Memory Total:</b> {mem_t}\n'\
             f'<b>Memory Free:</b> {mem_a}\n'\
             f'<b>Memory Used:</b> {mem_u}\n'
-    effective_message.reply_photo(STATS_IMG_URL, stats, context.bot, update.message)
+    update.effective_message.reply_photo(STATS_IMG_URL, stats, context.bot, update.message)
 
 
 def start(update, context):
