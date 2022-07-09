@@ -69,7 +69,7 @@ def start(update, context):
     buttons = ButtonMaker()
     buttons.buildbutton("Owner", "https://t.me/ak_nh4")
     buttons.buildbutton("Mirror Group", "https://t.me/AKLEECHZONE")
-    buttons.buildbutton("Repo", "https://github.com/Adhil-AK/AK-mirror-leech-tg-bot")
+    buttons.buildbutton("Repo", "https://t.me/AK_Mirror_Leech_Bot")
     buttons.buildbutton("Report Group", "https://t.me/Mltb_chat_unofficial")
     reply_markup = InlineKeyboardMarkup(buttons.build_menu(2))
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
