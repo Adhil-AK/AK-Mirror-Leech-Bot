@@ -367,12 +367,6 @@ except:
     BUTTON_SIX_NAME = None
     BUTTON_SIX_URL = None
 try:
-    STATS_IMG_URL = getConfig('STATS_IMG_URL')
-    if len(STATS_IMG_URL) == 0:
-        STATS_IMG_URL = 'https://telegra.ph/file/a543a43913089c301eb9a.jpg'
-except KeyError:
-    STATS_IMG_URL = 'https://telegra.ph/file/a543a43913089c301eb9a.jpg'
-try:
     INCOMPLETE_TASK_NOTIFIER = getConfig('INCOMPLETE_TASK_NOTIFIER')
     INCOMPLETE_TASK_NOTIFIER = INCOMPLETE_TASK_NOTIFIER.lower() == 'true'
 except:
