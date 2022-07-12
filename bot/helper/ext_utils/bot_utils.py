@@ -378,14 +378,14 @@ def bot_sys_stats():
     stats = f"BOT STATISTICS"
     stats += f"""
 
-<b>┌ </b>Bot Uptime: {currentTime}
-<b>├ </b>T-DL: {recv}
-<b>├ </b>T-UP: {sent}
-<b>├ </b>CPU: {cpu}%
-<b>├ </b>RAM: {mem}%
-<b>├ </b>Disk: {total}
-<b>├ </b>Free: {free}
-<b>└ </b>Used: {disk}% = {used}
+┌ Bot Uptime: {currentTime}
+├ T-DL: {recv}
+├ T-UP: {sent}
+├ CPU: {cpu}%
+├ RAM: {mem}%
+├ Disk: {total}
+├ Free: {free}
+└ Used: {disk}% = {used}
 
 Made with ❤️ by Adhil
 """
