@@ -45,10 +45,10 @@ class EngineStatus:
     STATUS_ARIA = "Aria2c v1.35.0"
     STATUS_GD = "Google Api v2.51.0"
     STATUS_MEGA = "MegaSDK v3.12.0"
-    STATUS_QB = "qBittorrent v4.3.9"
+    STATUS_QB = "qBittorrent v4.4.2"
     STATUS_TG = "Pyrogram v2.0.27"
     STATUS_YT = "YT-dlp v22.5.18"
-    STATUS_EXT = "Extract | pExtract"
+    STATUS_EXT = "pExtract"
     STATUS_SPLIT = "FFmpeg v2.9.1"
     STATUS_ZIP = "p7zip v16.02"
 
@@ -375,18 +375,21 @@ def bot_sys_stats():
                 num_extract += 1
        if stats.status() == MirrorStatus.STATUS_SPLITTING:
                 num_split += 1
-    stats = f"Bot Statistics"
+    stats = f"BOT STATISTICS"
     stats += f"""
 
-Bot Uptime: {currentTime}
-T-DL: {recv} | T-UP: {sent}
-CPU: {cpu}% | RAM: {mem}%
-Disk: {total} | Free: {free}
-Used: {disk}% = {used}
+<b>┌ </b>Bot Uptime: {currentTime}
+<b>├ </b>T-DL: {recv}
+<b>├ </b>T-UP: {sent}
+<b>├ </b>CPU: {cpu}%
+<b>├ </b>RAM: {mem}%
+<b>├ </b>Disk: {total}
+<b>├ </b>Free: {free}
+<b>└ </b>Used: {disk}% = {used}
 
 Made with ❤️ by Adhil
 """
     return stats
 dispatcher.add_handler(
     CallbackQueryHandler(pop_up_stats, pattern="^" + str(THREE) + "$")
-) 
+)
