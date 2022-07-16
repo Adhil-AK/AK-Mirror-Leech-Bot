@@ -1,7 +1,6 @@
 from threading import Thread
 from telegram import InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler
-
 from bot import LOGGER, dispatcher
 from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.telegram_helper.message_utils import sendMessage, editMessage, sendMarkup
@@ -29,10 +28,10 @@ def select_type(update, context):
     data = query.data
     data = data.split()
     if user_id != int(data[1]):
-        return query.answer(text="Not Yours!", show_alert=True)
+        return query.answer(text="Not Yours, STFU!", show_alert=True)
     elif data[2] == 'cancel':
         query.answer()
-        return editMessage("list has been canceled!", msg)
+        return editMessage("List has been canceled!", msg)
     query.answer()
     item_type = data[2]
     editMessage(f"<b>Searching for <i>{key}</i></b>", msg)

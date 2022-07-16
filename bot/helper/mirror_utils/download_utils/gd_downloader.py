@@ -1,13 +1,11 @@
 from random import SystemRandom
 from string import ascii_letters, digits
-
 from bot import download_dict, download_dict_lock, ZIP_UNZIP_LIMIT, LOGGER, STOP_DUPLICATE, STORAGE_THRESHOLD, TORRENT_DIRECT_LIMIT, LEECH_LIMIT
 from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.mirror_utils.status_utils.gd_download_status import GdDownloadStatus
 from bot.helper.telegram_helper.message_utils import sendMessage, sendStatusMessage, sendMarkup
 from bot.helper.ext_utils.bot_utils import get_readable_file_size
 from bot.helper.ext_utils.fs_utils import get_base_name, check_storage_threshold
-
 
 def add_gd_download(link, listener, is_gdtot):
     res, size, name, files = GoogleDriveHelper().helper(link)
@@ -16,7 +14,7 @@ def add_gd_download(link, listener, is_gdtot):
     if STOP_DUPLICATE and not listener.isLeech:
         LOGGER.info('Checking File/Folder if already in Drive...')
         if listener.isZip:
-            gname = name + ".zip"
+            gname = f"{name}.zip"
         elif listener.extract:
             try:
                 gname = get_base_name(name)
@@ -27,7 +25,7 @@ def add_gd_download(link, listener, is_gdtot):
             if gmsg:
                 msg = "File/Folder have been already mirrored by Someone !\nHere you go:"
                 return sendMarkup(msg, listener.bot, listener.message, button)
-    if any([ZIP_UNZIP_LIMIT, STORAGE_THRESHOLD, TORRENT_DIRECT_LIMIT, LEECH_LIMIT]):
+    if any([ZIP_UNZIP_LIMIT, LEECH_LIMIT, STORAGE_THRESHOLD, TORRENT_DIRECT_LIMIT]):
         arch = any([listener.extract, listener.isZip, listener.isLeech])
         limit = None
         if STORAGE_THRESHOLD is not None:
@@ -39,7 +37,7 @@ def add_gd_download(link, listener, is_gdtot):
         if ZIP_UNZIP_LIMIT is not None and arch:
             mssg = f'Zip/Unzip limit is {ZIP_UNZIP_LIMIT}GB'
             limit = ZIP_UNZIP_LIMIT
-        if LEECH_LIMIT is not None and arch:
+        if LEECH_LIMIT is not None and listener.isLeech:
             mssg = f'Leech limit is {LEECH_LIMIT}GB'
             limit = LEECH_LIMIT
         elif TORRENT_DIRECT_LIMIT is not None:

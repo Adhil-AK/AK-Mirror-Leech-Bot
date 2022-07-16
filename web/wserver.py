@@ -220,13 +220,13 @@ input[type="submit"]:hover, input[type="submit"]:focus{
           src="https://telegra.ph/file/cc06d0c613491080cc174.png"
           alt="logo"
         />
-        <a href="https://t.me/anas_tayyar">
+        <a href="https://t.me/ak_nh4">
           <h2 class="name">Qbittorrent Selection</h2>
         </a>
       </div>
       <div class="social">
-        <a href="https://www.github.com/anasty17/mirror-leech-telegram-bot"><i class="fab fa-github"></i></a>
-        <a href="https://t.me/anas_tayyar"><i class="fab fa-telegram"></i></a>
+        <a href="https://github.com/Adhil-AK/AK-mirror-leech-bot"><i class="fab fa-github"></i></a>
+        <a href="https://t.me/ak_nh4"><i class="fab fa-telegram"></i></a>
       </div>
     </header>
     <div id="sticks">
@@ -612,13 +612,13 @@ section span{
           src="https://telegra.ph/file/cc06d0c613491080cc174.png"
           alt="logo"
         />
-        <a href="https://t.me/anas_tayyar">
+        <a href="https://t.me/ak_nh4">
           <h2 class="name">Qbittorrent Selection</h2>
         </a>
       </div>
       <div class="social">
-        <a href="https://www.github.com/anasty17/mirror-leech-telegram-bot"><i class="fab fa-github"></i></a>
-        <a href="https://t.me/anas_tayyar"><i class="fab fa-telegram"></i></a>
+        <a href="https://github.com/Adhil-AK/AK-mirror-leech-bot"><i class="fab fa-github"></i></a>
+        <a href="https://t.me/ak_nh4"><i class="fab fa-telegram"></i></a>
       </div>
     </header>
     <section>
@@ -753,7 +753,7 @@ def set_priority(hash_id):
 
 @app.route('/')
 def homepage():
-    return "<h1>See mirror-leech-telegram-bot <a href='https://www.github.com/anasty17/mirror-leech-telegram-bot'>@GitHub</a> By <a href='https://github.com/anasty17'>Anas</a></h1>"
+    return "<h1>See AK-Mirror-leech-bot <a href='https://github.com/Adhil-AK/AK-mirror-leech-bot'>@GitHub</a> By <a href='https://github.com/Adhil-AK'>Adhil</a></h1>"
 
 @app.errorhandler(NotFound404Error)
 def page_not_found(e):

@@ -3,25 +3,54 @@ from string import ascii_letters, digits
 from telegram.ext import CommandHandler
 from threading import Thread
 from time import sleep
-
 from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, deleteMessage, delete_all_messages, update_all_messages, sendStatusMessage
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.mirror_utils.status_utils.clone_status import CloneStatus
-from bot import dispatcher, LOGGER, CLONE_LIMIT, STOP_DUPLICATE, download_dict, download_dict_lock, Interval
-from bot.helper.ext_utils.bot_utils import *
-from bot.helper.mirror_utils.download_utils.direct_link_generator import *
+from bot import bot, dispatcher, LOGGER, CLONE_LIMIT, STOP_DUPLICATE, download_dict, download_dict_lock, Interval, BOT_PM, MIRROR_LOGS, FSUB, FSUB_CHANNEL_ID, CHANNEL_USERNAME
+from bot.helper.ext_utils.bot_utils import get_readable_file_size, is_gdrive_link, is_gdtot_link, new_thread, is_appdrive_link
+from bot.helper.mirror_utils.download_utils.direct_link_generator import gdtot, appdrive
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException
-
+from telegram import InlineKeyboardMarkup, ParseMode
+from bot.helper.telegram_helper.button_build import ButtonMaker
 
 def _clone(message, bot, multi=0):
-    args = message.text.split(maxsplit=1)
+    buttons = ButtonMaker()
+
+    if FSUB:
+        try:
+            uname = message.from_user.mention_html(message.from_user.first_name)
+            user = bot.get_chat_member(FSUB_CHANNEL_ID, message.from_user.id)
+            if user.status not in ['member', 'creator', 'administrator']:
+                buttons.buildbutton("AK Mirrror", f"https://t.me/{CHANNEL_USERNAME}")
+                reply_markup = InlineKeyboardMarkup(buttons.build_menu(1))
+                return sendMarkup(f"<b>Dear {uname}️,\nYou haven't joined our Updates Channel yet.\nJoin and <u>Use Bots Without Restrictions.</u></b>", bot, message, reply_markup)
+        except Exception as e:
+            LOGGER.info(str(e))
+
+    if BOT_PM:
+        try:
+            msg1 = f'Added your Requested link to Download\n'
+            send = bot.sendMessage(message.from_user.id, text=msg1)
+            send.delete()
+        except Exception as e:
+            LOGGER.warning(e)
+            bot_d = bot.get_me()
+            b_uname = bot_d.username
+            uname = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
+            botstart = f"http://t.me/{b_uname}"
+            buttons.buildbutton("Click Here to Start Me", f"{botstart}")
+            startwarn = f"Dear {uname},\n\n<b>I found that you haven't started me in PM (Private Chat) yet.</b>\n\nFrom now on i will give link and leeched files in PM and log channel only"
+            message = sendMarkup(startwarn, bot, message, InlineKeyboardMarkup(buttons.build_menu(2)))
+            return
+
+    args = message.text.split()
     reply_to = message.reply_to_message
     link = ''
     if len(args) > 1:
         link = args[1].strip()
-        if link.isdigit():
+        if link.strip().isdigit():
             multi = int(link)
             link = ''
         elif message.from_user.username:
@@ -30,30 +59,32 @@ def _clone(message, bot, multi=0):
             tag = message.from_user.mention_html(message.from_user.first_name)
     if reply_to:
         if len(link) == 0:
-            link = reply_to.text.strip()
+            link = reply_to.text.split(maxsplit=1)[0].strip()
         if reply_to.from_user.username:
             tag = f"@{reply_to.from_user.username}"
         else:
             tag = reply_to.from_user.mention_html(reply_to.from_user.first_name)
     is_gdtot = is_gdtot_link(link)
-    is_unified = is_unified_link(link)
-    is_udrive = is_udrive_link(link)
-    is_sharer = is_sharer_link(link)
-    if (is_gdtot or is_unified or is_udrive or is_sharer):
+    is_appdrive = is_appdrive_link(link)
+    if is_gdtot:
         try:
             msg = sendMessage(f"Processing: <code>{link}</code>", bot, message)
-            LOGGER.info(f"Processing: {link}")
-            if is_unified:
-                link = unified(link)
-            if is_gdtot:
-                link = gdtot(link)
-            if is_udrive:
-                link = udrive(link)
-            if is_sharer:
-                link = sharer_pw(link)
+            link = gdtot(link)
+            LOGGER.info(f"Processing GdToT: {link}")
             deleteMessage(bot, msg)
         except DirectDownloadLinkException as e:
             deleteMessage(bot, msg)
+            return sendMessage(str(e), bot, message)
+    if is_appdrive:
+        msg = sendMessage(f"Processing: <code>{link}</code>", bot, message)
+        try:
+            apdict = appdrive(link)
+            link = apdict.get('gdrive_link')
+            LOGGER.info(f"Processing AppDrive: {link}")
+            deleteMessage(bot, msg)
+        except DirectDownloadLinkException as e:
+            deleteMessage(bot, msg)
+            return sendMessage(str(e), bot, message)
     if is_gdrive_link(link):
         gd = GoogleDriveHelper()
         res, size, name, files = gd.helper(link)
@@ -108,10 +139,14 @@ def _clone(message, bot, multi=0):
         else:
             sendMarkup(result + cc, bot, message, button)
             LOGGER.info(f'Cloning Done: {name}')
-        if (is_gdtot or is_unified or is_udrive or is_sharer):
+        if is_gdtot:
             gd.deletefile(link)
+        elif is_appdrive:
+            if apdict.get('link_type') == 'login':
+                LOGGER.info(f"Deleting: {link}")
+                gd.deletefile(link)
     else:
-        sendMessage('Send Gdrive or GDToT/AppDrive/DriveApp/GDFlix/DriveBit/DriveLinks/DrivePro/DriveAce/DriveSharer/HubDrive/DriveHub/KatDrive/Kolop/DriveFire/SharerPw link along with command or by replying to the link by command', bot, message)
+        sendMessage('Send Gdrive, GDToT or AppDrive link along with command or by replying to the link by command', bot, message)
 
 @new_thread
 def cloneNode(update, context):

@@ -2,7 +2,6 @@ from os import path as ospath, listdir
 from time import sleep, time
 from re import search as re_search
 from telegram import InlineKeyboardMarkup
-
 from bot import download_dict, download_dict_lock, BASE_URL, get_client, TORRENT_DIRECT_LIMIT, \
                 ZIP_UNZIP_LIMIT, LEECH_LIMIT, STOP_DUPLICATE, WEB_PINCODE, TORRENT_TIMEOUT, LOGGER, STORAGE_THRESHOLD
 from bot.helper.mirror_utils.status_utils.qbit_download_status import QbDownloadStatus
@@ -11,7 +10,6 @@ from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, de
 from bot.helper.ext_utils.bot_utils import get_readable_file_size, get_readable_time, setInterval
 from bot.helper.ext_utils.fs_utils import clean_unwanted, get_base_name, check_storage_threshold
 from bot.helper.telegram_helper import button_build
-
 
 class QbDownloader:
     POLLING_INTERVAL = 3
@@ -113,7 +111,7 @@ class QbDownloader:
                     self.__onDownloadError("Dead Torrent!")
             elif tor_info.state == "downloading":
                 self.__stalled_time = time()
-                if not self.__dupChecked and STOP_DUPLICATE and ospath.isdir(f'{self.__path}') and not self.select:
+                if not self.__dupChecked and STOP_DUPLICATE and ospath.isdir(f'{self.__path}') and not self.__listener.isLeech and not self.select:
                     LOGGER.info('Checking File/Folder if already in Drive')
                     qbname = str(listdir(f'{self.__path}')[-1])
                     if qbname.endswith('.!qB'):

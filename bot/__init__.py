@@ -134,7 +134,7 @@ SUDO_USERS = set()
 AS_DOC_USERS = set()
 AS_MEDIA_USERS = set()
 EXTENSION_FILTER = set()
-LEECH_LOG = set()	
+LEECH_LOG = set()
 MIRROR_LOGS = set()
 
 try:
@@ -178,7 +178,7 @@ try:
     parent_id = getConfig('GDRIVE_FOLDER_ID')
     DOWNLOAD_DIR = getConfig('DOWNLOAD_DIR')
     if not DOWNLOAD_DIR.endswith("/"):
-        DOWNLOAD_DIR = DOWNLOAD_DIR + '/'
+        DOWNLOAD_DIR = f'{DOWNLOAD_DIR}/'
     DOWNLOAD_STATUS_UPDATE_INTERVAL = int(getConfig('DOWNLOAD_STATUS_UPDATE_INTERVAL'))
     OWNER_ID = int(getConfig('OWNER_ID'))
     AUTO_DELETE_MESSAGE_DURATION = int(getConfig('AUTO_DELETE_MESSAGE_DURATION'))
@@ -190,15 +190,6 @@ except:
 
 LOGGER.info("Generating BOT_SESSION_STRING")
 app = Client(name='pyrogram', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, bot_token=BOT_TOKEN, parse_mode=enums.ParseMode.HTML, no_updates=True)
-
-try:
-    USER_SESSION_STRING = getConfig('USER_SESSION_STRING')
-    if len(USER_SESSION_STRING) == 0:
-        raise KeyError
-    rss_session = Client(name='rss_session', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, session_string=USER_SESSION_STRING, parse_mode=enums.ParseMode.HTML, no_updates=True)
-except:
-    USER_SESSION_STRING = None
-    rss_session = None
 
 def aria2c_init():
     try:
@@ -257,12 +248,46 @@ try:
 except:
     DB_URI = None
 try:
+    RSS_CHAT_ID = getConfig('RSS_CHAT_ID')
+    if len(RSS_CHAT_ID) == 0:
+        raise KeyError
+    RSS_CHAT_ID = int(RSS_CHAT_ID)
+except:
+    RSS_CHAT_ID = None
+tgBotMaxFileSize = 2097151000
+try:
     TG_SPLIT_SIZE = getConfig('TG_SPLIT_SIZE')
-    if len(TG_SPLIT_SIZE) == 0 or int(TG_SPLIT_SIZE) > 2097151000:
+    if len(TG_SPLIT_SIZE) == 0 or int(TG_SPLIT_SIZE) > tgBotMaxFileSize:
         raise KeyError
     TG_SPLIT_SIZE = int(TG_SPLIT_SIZE)
 except:
-    TG_SPLIT_SIZE = 2097151000
+    TG_SPLIT_SIZE = tgBotMaxFileSize
+try:
+    USER_SESSION_STRING = getConfig('USER_SESSION_STRING')
+    if len(USER_SESSION_STRING) == 0:
+        raise KeyError
+    rss_session = Client(name='rss_session', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, session_string=USER_SESSION_STRING, parse_mode=enums.ParseMode.HTML, no_updates=True)
+    if not rss_session:
+        LOGGER.error("Can't initialize User Session String. Please regenerate USER_SESSION_STRING")
+    else:
+        rss_session.start()
+        if (rss_session.get_me()).is_premium:
+            if not LEECH_LOG:
+                LOGGER.error("You must set LEECH_LOG for uploads. Eiting now.")
+                try: rss_session.send_message(OWNER_ID, "You must set LEECH_LOG for uploads. README.md is there for a reason. Bot is closing now. Bye.")
+                except Exception as e: LOGGER.exception(e)
+                rss_session.stop()
+                app.stop()
+                exit(1)
+            TG_SPLIT_SIZE = 4194304000
+            LOGGER.info("Premium user detected. Upload limit is 4GB now.")
+        elif (not DB_URI) or (not RSS_CHAT_ID):
+            rss_session.stop()
+            LOGGER.info(f"Not using rss. if you want to use fill RSS_CHAT_ID and DB_URI variables.")
+except:
+    USER_SESSION_STRING = None
+    rss_session = None
+LOGGER.info(f"TG_SPLIT_SIZE: {TG_SPLIT_SIZE}")
 try:
     STATUS_LIMIT = getConfig('STATUS_LIMIT')
     if len(STATUS_LIMIT) == 0:
@@ -345,12 +370,12 @@ try:
 except:
     ZIP_UNZIP_LIMIT = None
 try:
-    RSS_CHAT_ID = getConfig('RSS_CHAT_ID')
-    if len(RSS_CHAT_ID) == 0:
+    LEECH_LIMIT = getConfig('LEECH_LIMIT')
+    if len(LEECH_LIMIT) == 0:
         raise KeyError
-    RSS_CHAT_ID = int(RSS_CHAT_ID)
+    LEECH_LIMIT = float(LEECH_LIMIT)
 except:
-    RSS_CHAT_ID = None
+    LEECH_LIMIT = None
 try:
     RSS_DELAY = getConfig('RSS_DELAY')
     if len(RSS_DELAY) == 0:
@@ -453,47 +478,13 @@ try:
 except:
     CRYPT = None
 try:
-    UNIFIED_EMAIL = getConfig('UNIFIED_EMAIL')
-    if len(UNIFIED_EMAIL) == 0:
+    APPDRIVE_EMAIL = getConfig('APPDRIVE_EMAIL')
+    APPDRIVE_PASS = getConfig('APPDRIVE_PASS')
+    if len(APPDRIVE_EMAIL) == 0 or len(APPDRIVE_PASS) == 0:
         raise KeyError
-except:
-    UNIFIED_EMAIL = None
-try:
-    UNIFIED_PASS = getConfig('UNIFIED_PASS')
-    if len(UNIFIED_PASS) == 0:
-        raise KeyError
-except:
-    UNIFIED_PASS = None
-try:
-    HUBDRIVE_CRYPT = getConfig('HUBDRIVE_CRYPT')
-    if len(HUBDRIVE_CRYPT) == 0:
-        raise KeyError
-except:
-    HUBDRIVE_CRYPT = None
-try:
-    KATDRIVE_CRYPT = getConfig('KATDRIVE_CRYPT')
-    if len(KATDRIVE_CRYPT) == 0:
-        raise KeyError
-except:
-    KATDRIVE_CRYPT = None
-try:
-    DRIVEFIRE_CRYPT = getConfig('DRIVEFIRE_CRYPT')
-    if len(DRIVEFIRE_CRYPT) == 0:
-        raise KeyError
-except:
-    DRIVEFIRE_CRYPT = None
-try:
-    XSRF_TOKEN = getConfig('XSRF_TOKEN')
-    if len(XSRF_TOKEN) == 0:
-        raise KeyError
-except:
-    XSRF_TOKEN = None
-try:
-    laravel_session = getConfig('laravel_session')
-    if len(laravel_session) == 0:
-        raise KeyError
-except:
-    laravel_session = None
+except KeyError:
+    APPDRIVE_EMAIL = None
+    APPDRIVE_PASS = None
 try:
     FSUB = getConfig('FSUB')
     FSUB = FSUB.lower() == 'true'
@@ -520,6 +511,15 @@ try:
     BOT_PM = BOT_PM.lower() == 'true'
 except KeyError:
     BOT_PM = False
+try:
+    HEROKU_API_KEY = getConfig('HEROKU_API_KEY')
+    HEROKU_APP_NAME = getConfig('HEROKU_APP_NAME')
+    if len(HEROKU_API_KEY) == 0 or len(HEROKU_APP_NAME) == 0:
+        raise KeyError
+except KeyError:
+    LOGGER.warning("Heroku details not entered.")
+    HEROKU_API_KEY = None
+    HEROKU_APP_NAME = None
 try:
     TOKEN_PICKLE_URL = getConfig('TOKEN_PICKLE_URL')
     if len(TOKEN_PICKLE_URL) == 0:

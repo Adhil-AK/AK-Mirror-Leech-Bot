@@ -1,12 +1,10 @@
 from time import sleep
-
 from bot import aria2, download_dict_lock, download_dict, STOP_DUPLICATE, TORRENT_DIRECT_LIMIT, ZIP_UNZIP_LIMIT, LEECH_LIMIT, LOGGER, STORAGE_THRESHOLD
 from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.ext_utils.bot_utils import is_magnet, getDownloadByGid, new_thread, get_readable_file_size
 from bot.helper.mirror_utils.status_utils.aria_download_status import AriaDownloadStatus
 from bot.helper.telegram_helper.message_utils import sendMarkup, sendStatusMessage, sendMessage
 from bot.helper.ext_utils.fs_utils import get_base_name, check_storage_threshold
-
 
 @new_thread
 def __onDownloadStarted(api, gid):
@@ -23,11 +21,11 @@ def __onDownloadStarted(api, gid):
             dl = getDownloadByGid(gid)
             if not dl:
                 return
-            if STOP_DUPLICATE:
+            if STOP_DUPLICATE and not dl.getListener().isLeech:
                 LOGGER.info('Checking File/Folder if already in Drive...')
                 sname = download.name
                 if dl.getListener().isZip:
-                    sname = sname + ".zip"
+                    sname = f"{sname}.zip"
                 elif dl.getListener().extract:
                     try:
                         sname = get_base_name(sname)
@@ -39,7 +37,7 @@ def __onDownloadStarted(api, gid):
                         dl.getListener().onDownloadError('File/Folder have been already mirrored by Someone !\n\n')
                         api.remove([download], force=True, files=True)
                         return sendMarkup("Here you go:", dl.getListener().bot, dl.getListener().message, button)
-            if any([ZIP_UNZIP_LIMIT, TORRENT_DIRECT_LIMIT, STORAGE_THRESHOLD]):
+            if any([ZIP_UNZIP_LIMIT, LEECH_LIMIT, TORRENT_DIRECT_LIMIT, STORAGE_THRESHOLD]):
                 sleep(1)
                 limit = None
                 size = download.total_length
@@ -55,7 +53,7 @@ def __onDownloadStarted(api, gid):
                 if ZIP_UNZIP_LIMIT is not None and arch:
                     mssg = f'Zip/Unzip limit is {ZIP_UNZIP_LIMIT}GB'
                     limit = ZIP_UNZIP_LIMIT
-                if LEECH_LIMIT is not None and arch:
+                if LEECH_LIMIT is not None and dl.getListener().isLeech:
                     mssg = f'Leech limit is {LEECH_LIMIT}GB'
                     limit = LEECH_LIMIT
                 elif TORRENT_DIRECT_LIMIT is not None:
@@ -83,8 +81,7 @@ def __onDownloadComplete(api, gid):
 @new_thread
 def __onDownloadStopped(api, gid):
     sleep(6)
-    dl = getDownloadByGid(gid)
-    if dl:
+    if dl := getDownloadByGid(gid):
         dl.getListener().onDownloadError('Dead torrent!')
 
 @new_thread
