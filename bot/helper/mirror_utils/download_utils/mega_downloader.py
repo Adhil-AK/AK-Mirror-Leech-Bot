@@ -1,7 +1,7 @@
 from threading import Lock
 from pathlib import Path
 
-from bot import LOGGER, download_dict, download_dict_lock, MEGA_LIMIT, STOP_DUPLICATE, ZIP_UNZIP_LIMIT, STORAGE_THRESHOLD
+from bot import LOGGER, download_dict, download_dict_lock, MEGA_LIMIT, STOP_DUPLICATE, ZIP_UNZIP_LIMIT, LEECH_LIMIT, STORAGE_THRESHOLD
 from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, sendStatusMessage
 from bot.helper.ext_utils.bot_utils import get_readable_file_size, setInterval
 from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
@@ -67,9 +67,15 @@ class MegaDownloader:
 
     def __onInterval(self):
         dlInfo = self.__mega_client.getDownloadInfo(self.gid)
-        if (dlInfo['state'] == constants.State.TYPE_STATE_COMPLETED or dlInfo[
-            'state'] == constants.State.TYPE_STATE_CANCELED or dlInfo[
-                'state'] == constants.State.TYPE_STATE_FAILED) and self.__periodic is not None:
+        if (
+            dlInfo['state']
+            in [
+                constants.State.TYPE_STATE_COMPLETED,
+                constants.State.TYPE_STATE_CANCELED,
+                constants.State.TYPE_STATE_FAILED,
+            ]
+            and self.__periodic is not None
+        ):
             self.__periodic.cancel()
         if dlInfo['state'] == constants.State.TYPE_STATE_COMPLETED:
             self.__onDownloadComplete()
@@ -111,7 +117,7 @@ class MegaDownloader:
             LOGGER.info('Checking File/Folder if already in Drive')
             mname = file_name
             if self.__listener.isZip:
-                mname = mname + ".zip"
+                mname = f"{mname}.zip"
             elif self.__listener.extract:
                 try:
                     mname = get_base_name(mname)
@@ -122,8 +128,8 @@ class MegaDownloader:
                 if smsg:
                     msg1 = "File/Folder have been already mirrored by Someone !\nHere you go:"
                     return sendMarkup(msg1, self.__listener.bot, self.__listener.message, button)
-        if any([STORAGE_THRESHOLD, ZIP_UNZIP_LIMIT, MEGA_LIMIT]):
-            arch = any([self.__listener.isZip, self.__listener.extract])
+        if any([STORAGE_THRESHOLD, ZIP_UNZIP_LIMIT, LEECH_LIMIT, MEGA_LIMIT]):
+            arch = any([self.__listener.isZip, self.__listener.extract, self.__listener.isLeech])
             if STORAGE_THRESHOLD is not None:
                 acpt = check_storage_threshold(file_size, arch)
                 if not acpt:
@@ -134,6 +140,9 @@ class MegaDownloader:
             if ZIP_UNZIP_LIMIT is not None and arch:
                 msg3 = f'Failed, Zip/Unzip limit is {ZIP_UNZIP_LIMIT}GB.\nYour File/Folder size is {get_readable_file_size(file_size)}.'
                 limit = ZIP_UNZIP_LIMIT
+            if LEECH_LIMIT is not None and self.__listener.isLeech:
+                msg3 = f'Failed, Leech limit is {LEECH_LIMIT}GB.\nYour File/Folder size is {get_readable_file_size(file_size)}.'
+                limit = LEECH_LIMIT
             elif MEGA_LIMIT is not None:
                 msg3 = f'Failed, Mega limit is {MEGA_LIMIT}GB.\nYour File/Folder size is {get_readable_file_size(file_size)}.'
                 limit = MEGA_LIMIT

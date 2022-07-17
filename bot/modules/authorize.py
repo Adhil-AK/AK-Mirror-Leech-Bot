@@ -5,7 +5,6 @@ from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.db_handler import DbManger
 
-
 def authorize(update, context):
     reply_message = update.message.reply_to_message
     if len(context.args) == 1:
@@ -111,20 +110,14 @@ def removeSudo(update, context):
     if len(context.args) == 1:
         user_id = int(context.args[0])
         if user_id in SUDO_USERS:
-            if DB_URI is not None:
-                msg = DbManger().user_rmsudo(user_id)
-            else:
-                msg = 'Demoted'
+            msg = DbManger().user_rmsudo(user_id) if DB_URI is not None else 'Demoted'
             SUDO_USERS.remove(user_id)
         else:
             msg = 'Not sudo user to demote!'
     elif reply_message:
         user_id = reply_message.from_user.id
         if user_id in SUDO_USERS:
-            if DB_URI is not None:
-                msg = DbManger().user_rmsudo(user_id)
-            else:
-                msg = 'Demoted'
+            msg = DbManger().user_rmsudo(user_id) if DB_URI is not None else 'Demoted'
             SUDO_USERS.remove(user_id)
         else:
             msg = 'Not sudo user to demote!'
@@ -137,7 +130,6 @@ def sendAuthChats(update, context):
     user += '\n'.join(f"<code>{uid}</code>" for uid in AUTHORIZED_CHATS)
     sudo += '\n'.join(f"<code>{uid}</code>" for uid in SUDO_USERS)
     sendMessage(f'<b><u>Authorized Chats:</u></b>\n{user}\n<b><u>Sudo Users:</u></b>\n{sudo}', context.bot, update.message)
-
 
 send_auth_handler = CommandHandler(command=BotCommands.AuthorizedUsersCommand, callback=sendAuthChats,
                                     filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
