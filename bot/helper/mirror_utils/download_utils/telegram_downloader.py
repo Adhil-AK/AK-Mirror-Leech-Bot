@@ -81,12 +81,8 @@ class TelegramDownloadHelper:
 
     def add_download(self, message, path, filename):
         _dmsg = app.get_messages(message.chat.id, reply_to_message_ids=message.message_id)
-        media = None
         media_array = [_dmsg.document, _dmsg.video, _dmsg.audio]
-        for i in media_array:
-            if i is not None:
-                media = i
-                break
+        media = next((i for i in media_array if i is not None), None)
         if media is not None:
             with global_lock:
                 # For avoiding locking the thread lock for long time unnecessarily
@@ -103,8 +99,7 @@ class TelegramDownloadHelper:
                     LOGGER.info('Checking File/Folder if already in Drive...')
                     smsg, button = GoogleDriveHelper().drive_list(name, True, True)
                     if smsg:
-                        msg = "File/Folder is already available in Drive.\nHere are the search results:"
-                        #self.__onEventEnd()
+                        msg = "This File have been already mirrored by Someone.\nHere you go:"
                         return sendMarkup(msg, self.__listener.bot, self.__listener.message, button)
                 if STORAGE_THRESHOLD is not None:
                     arch = any([self.__listener.isZip, self.__listener.extract])

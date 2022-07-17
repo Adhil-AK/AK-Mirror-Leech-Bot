@@ -5,7 +5,6 @@ from html import escape
 from urllib.parse import quote
 from telegram import InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler
-
 from bot import dispatcher, LOGGER, SEARCH_API_LINK, SEARCH_PLUGINS, get_client, SEARCH_LIMIT
 from bot.helper.ext_utils.telegraph_helper import telegraph
 from bot.helper.telegram_helper.message_utils import editMessage, sendMessage, sendMarkup
@@ -17,8 +16,7 @@ from bot.helper.telegram_helper import button_build
 if SEARCH_PLUGINS is not None:
     PLUGINS = []
     qbclient = get_client()
-    qb_plugins = qbclient.search_plugins()
-    if qb_plugins:
+    if qb_plugins := qbclient.search_plugins():
         for plugin in qb_plugins:
             qbclient.search_uninstall_plugin(names=plugin['name'])
     qbclient.search_install_plugin(SEARCH_PLUGINS)
@@ -46,7 +44,6 @@ SITES = {
 
 TELEGRAPH_LIMIT = 300
 
-
 def torser(update, context):
     user_id = update.message.from_user.id
     buttons = button_build.ButtonMaker()
@@ -66,10 +63,10 @@ def torser(update, context):
         buttons.sbutton("Cancel", f"torser {user_id} cancel")
         button = InlineKeyboardMarkup(buttons.build_menu(2))
         sendMarkup('Choose tool to search:', context.bot, update.message, button)
-    elif SEARCH_API_LINK is not None and SEARCH_PLUGINS is None:
+    elif SEARCH_API_LINK is not None:
         button = _api_buttons(user_id, "apisearch")
         sendMarkup('Choose site to search:', context.bot, update.message, button)
-    elif SEARCH_API_LINK is None and SEARCH_PLUGINS is not None:
+    else:
         button = _plugin_buttons(user_id)
         sendMarkup('Choose site to search:', context.bot, update.message, button)
 
@@ -78,10 +75,7 @@ def torserbut(update, context):
     user_id = query.from_user.id
     message = query.message
     key = message.reply_to_message.text.split(maxsplit=1)
-    if len(key) > 1:
-        key = key[1].strip()
-    else:
-        key = None
+    key = key[1].strip() if len(key) > 1 else None
     data = query.data
     data = data.split()
     if user_id != int(data[1]):
@@ -100,10 +94,10 @@ def torserbut(update, context):
         method = data[3]
         if method.startswith('api'):
             if key is None:
-                if method == 'apitrend':
-                    endpoint = 'Trending'
-                elif method == 'apirecent':
+                if method == 'apirecent':
                     endpoint = 'Recent'
+                elif method == 'apitrend':
+                    endpoint = 'Trending'
                 editMessage(f"<b>Listing {endpoint} Items...\nTorrent Site:- <i>{SITES.get(site)}</i></b>", message)
             else:
                 editMessage(f"<b>Searching for <i>{key}</i>\nTorrent Site:- <i>{SITES.get(site)}</i></b>", message)

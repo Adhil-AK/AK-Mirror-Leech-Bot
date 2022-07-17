@@ -1,14 +1,12 @@
 from telegram import InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler
 from time import sleep
-
-from bot import download_dict, dispatcher, download_dict_lock, QB_SEED, SUDO_USERS, OWNER_ID
+from bot import download_dict, dispatcher, download_dict_lock, SUDO_USERS, OWNER_ID
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup
 from bot.helper.ext_utils.bot_utils import getDownloadByGid, MirrorStatus, getAllDownload
 from bot.helper.telegram_helper import button_build
-
 
 def cancel_mirror(update, context):
     user_id = update.message.from_user.id
@@ -20,8 +18,7 @@ def cancel_mirror(update, context):
     elif update.message.reply_to_message:
         mirror_message = update.message.reply_to_message
         with download_dict_lock:
-            keys = list(download_dict.keys())
-            if mirror_message.message_id in keys:
+            if mirror_message.message_id in download_dict:
                 dl = download_dict[mirror_message.message_id]
             else:
                 dl = None
@@ -45,22 +42,17 @@ def cancel_mirror(update, context):
 
 def cancel_all(status):
     gid = ''
-    while True:
-        dl = getAllDownload(status)
-        if dl:
-            if dl.gid() != gid:
-                gid = dl.gid()
-                dl.download().cancel_download()
-                sleep(1)
-        else:
-            break
+    while dl := getAllDownload(status):
+        if dl.gid() != gid:
+            gid = dl.gid()
+            dl.download().cancel_download()
+            sleep(1)
 
 def cancell_all_buttons(update, context):
     buttons = button_build.ButtonMaker()
     buttons.sbutton("Downloading", "canall down")
     buttons.sbutton("Uploading", "canall up")
-    if QB_SEED:
-        buttons.sbutton("Seeding", "canall seed")
+    buttons.sbutton("Seeding", "canall seed")
     buttons.sbutton("Cloning", "canall clone")
     buttons.sbutton("All", "canall all")
     button = InlineKeyboardMarkup(buttons.build_menu(2))
@@ -76,9 +68,7 @@ def cancel_all_update(update, context):
         query.message.delete()
         cancel_all(data[1])
     else:
-        query.answer(text="You don't have permission to use these buttons!", show_alert=True)
-
-
+        query.answer(text="This is not yours, STFU !", show_alert=True)
 
 cancel_mirror_handler = CommandHandler(BotCommands.CancelMirror, cancel_mirror,
                                        filters=(CustomFilters.authorized_chat | CustomFilters.authorized_user), run_async=True)

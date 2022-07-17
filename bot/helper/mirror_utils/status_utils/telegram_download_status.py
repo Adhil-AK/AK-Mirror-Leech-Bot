@@ -57,3 +57,4 @@ class TelegramDownloadStatus:
 
     def eng(self):
         return EngineStatus.STATUS_TG
+
