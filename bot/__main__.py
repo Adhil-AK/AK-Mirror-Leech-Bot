@@ -32,7 +32,7 @@ def stats(update, context):
     free = get_readable_file_size(free)
     sent = get_readable_file_size(net_io_counters().bytes_sent)
     recv = get_readable_file_size(net_io_counters().bytes_recv)
-    cpuUsage = cpu_percent(interval=0.5)
+    cpuUsage = cpu_percent(interval=1)
     p_core = cpu_count(logical=False)
     t_core = cpu_count(logical=True)
     swap = swap_memory()
@@ -43,40 +43,45 @@ def stats(update, context):
     mem_t = get_readable_file_size(memory.total)
     mem_a = get_readable_file_size(memory.available)
     mem_u = get_readable_file_size(memory.used)
-    stats = f'<b>Bot Version:</b> {botVersion}\n\n'\
-            f'<b>Commit Date:</b> {last_commit}\n\n'\
-            f'<b>Bot Uptime:</b> {currentTime}\n'\
-            f'<b>OS Uptime:</b> {osUptime}\n\n'\
-            f'<b>Total Disk Space:</b> {total}\n'\
-            f'<b>Used:</b> {used} | <b>Free:</b> {free}\n\n'\
-            f'<b>Upload:</b> {sent}\n'\
-            f'<b>Download:</b> {recv}\n\n'\
-            f'<b>CPU:</b> {cpuUsage}%\n'\
-            f'<b>RAM:</b> {mem_p}%\n'\
-            f'<b>DISK:</b> {disk}%\n\n'\
-            f'<b>Physical Cores:</b> {p_core}\n'\
-            f'<b>Total Cores:</b> {t_core}\n\n'\
-            f'<b>SWAP:</b> {swap_t} | <b>Used:</b> {swap_p}%\n'\
-            f'<b>Memory Total:</b> {mem_t}\n'\
-            f'<b>Memory Free:</b> {mem_a}\n'\
-            f'<b>Memory Used:</b> {mem_u}\n'
+    stats = f'<b>Bot Statistics</b>\n' \
+            f'<b>┌ Version:</b> {botVersion}\n'\
+            f'<b>├ Updated On:</b> {last_commit}\n'\
+            f'<b>├ Bot Uptime:</b> {currentTime}\n'\
+            f'<b>├ OS Uptime:</b> {osUptime}\n'\
+            f'<b>├ Total Disk:</b> {total}\n'\
+            f'<b>├ Used:</b> {used}\n'\
+            f'<b>├ Free:</b> {free}\n'\
+            f'<b>├ T-Upload:</b> {sent}\n'\
+            f'<b>├ T-Download:</b> {recv}\n'\
+            f'<b>├ CPU:</b> {cpuUsage}%\n'\
+            f'<b>├ RAM:</b> {mem_p}%\n'\
+            f'<b>├ DISK:</b> {disk}%\n'\
+            f'<b>├ Physical Cores:</b> {p_core}\n'\
+            f'<b>├ Total Cores:</b> {t_core}\n'\
+            f'<b>├ SWAP:</b> {swap_t}\n'\
+            f'<b>├ Used:</b> {swap_p}%\n'\
+            f'<b>├ Memory Total:</b> {mem_t}\n'\
+            f'<b>├ Memory Free:</b> {mem_a}\n'\
+            f'<b>└ Memory Used:</b> {mem_u}\n'\
+    if heroku := getHerokuDetails(HEROKU_API_KEY, HEROKU_APP_NAME):
+        stats += heroku
     sendMessage(stats, context.bot, update.message)
-
 
 def start(update, context):
     buttons = ButtonMaker()
     buttons.buildbutton("Owner", "https://t.me/ak_nh4")
-    buttons.buildbutton("Mirror Group", "https://t.me/+dT3MKCCvpL9mNjk1")
-    buttons.buildbutton("Repo", "https://t.me/AK_Mirror")
+    buttons.buildbutton("Mirror Group", "https://t.me/AK_Mirror")
+    buttons.buildbutton("Repo", "https://github.com/Adhil-AK/AK-Mirror-Leech-Bot")
+    buttons.buildbutton("Support Group", "https://t.me/Mltb_chat_unofficial")
     reply_markup = InlineKeyboardMarkup(buttons.build_menu(2))
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
         start_string = f'''
 Welcome! AK MIRROR BOT is ready for you | I can mirror all your links/Torrents to Google Drive and can leech to Telegram!
-Type /{BotCommands.HelpCommand} to get a list of available commands
+Type /{BotCommands.HelpCommand} to get a list of available commands.
 '''
         sendMarkup(start_string, context.bot, update.message, reply_markup)
     else:
-        sendMarkup('Sorry bruh, you cannot use me', context.bot, update.message, reply_markup)
+        sendMarkup('Sorry bruh, you cannot use me.', context.bot, update.message, reply_markup)
 
 def restart(update, context):
     restart_message = sendMessage("Restarting...", context.bot, update.message)
