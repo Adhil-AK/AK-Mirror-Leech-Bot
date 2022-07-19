@@ -46,7 +46,8 @@ def stats(update, context):
     mem_t = get_readable_file_size(memory.total)
     mem_a = get_readable_file_size(memory.available)
     mem_u = get_readable_file_size(memory.used)
-    stats = f'<b>┌ Version:</b> {botVersion}\n'\
+    stats = f'<b>Bot Statistics</b>\n'\
+            f'<b>┌ Version:</b> {botVersion}\n'\
             f'<b>├ Updated On:</b> {last_commit}\n'\
             f'<b>├ Bot Uptime:</b> {currentTime}\n'\
             f'<b>├ OS Uptime:</b> {osUptime}\n'\
@@ -64,7 +65,7 @@ def stats(update, context):
             f'<b>├ Used:</b> {swap_p}%\n'\
             f'<b>├ Memory Total:</b> {mem_t}\n'\
             f'<b>├ Memory Free:</b> {mem_a}\n'\
-            f'<b>└ Memory Used:</b> {mem_u}\n'\
+            f'<b>└ Memory Used:</b> {mem_u}\n'
     if heroku := getHerokuDetails(HEROKU_API_KEY, HEROKU_APP_NAME):
         stats += heroku
     sendMessage(stats, context.bot, update.message)
