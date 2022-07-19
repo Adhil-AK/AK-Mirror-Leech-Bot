@@ -69,7 +69,7 @@ def stats(update, context):
     if heroku := getHerokuDetails(HEROKU_API_KEY, HEROKU_APP_NAME):
         stats += heroku
     else:
-        stats += f"<b>╰──《 @AK_MIRROR 》"
+        stats += f"<b>╰──《 @AK_MIRROR 》</b>"
     sendMessage(stats, context.bot, update.message)
 
 def start(update, context):
