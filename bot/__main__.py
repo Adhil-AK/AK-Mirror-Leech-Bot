@@ -20,10 +20,15 @@ from .modules import authorize, list, cancel_mirror, mirror_status, mirror, clon
 
 def stats(update, context):
     if ospath.exists('.git'):
-        last_commit = check_output(["git log -1 --date=short --pretty=format:'%cr <b>On</b> %cd'"], shell=True).decode()
+        last_commit = check_output(["git log -1 --date=short --pretty=format:'%cd \n<b>From</b> %cr'"], shell=True).decode()
     else:
         last_commit = 'No UPSTREAM_REPO'
+    if ospath.exists('.git'):
+        botVersion = check_output(["git log -1 --date=format:v%y.%m%d.%H%M --pretty=format:%cd"], shell=True).decode()
+    else:
+        botVersion = 'No UPSTREAM_REPO'
     currentTime = get_readable_time(time() - botStartTime)
+    osUptime = get_readable_time(time() - boot_time())
     total, used, free, disk= disk_usage('/')
     total = get_readable_file_size(total)
     used = get_readable_file_size(used)
@@ -31,34 +36,54 @@ def stats(update, context):
     sent = get_readable_file_size(net_io_counters().bytes_sent)
     recv = get_readable_file_size(net_io_counters().bytes_recv)
     cpuUsage = cpu_percent(interval=1)
+    p_core = cpu_count(logical=False)
+    t_core = cpu_count(logical=True)
+    swap = swap_memory()
+    swap_p = swap.percent
+    swap_t = get_readable_file_size(swap.total)
     memory = virtual_memory()
     mem_p = memory.percent
-    stats = f'<b><i><u>@Z_Mirror Bot Statistics</u></i></b>\n\n'\
-            f'<b>Updated:</b> <code>{last_commit}</code>\n'\
-            f'<b>I am Working For:</b> <code>{currentTime}</code>\n'\
-            f'<b>Total Disk:</b> <code>{total}</code> [{disk}% In use]\n'\
-            f'<b>Used:</b> <code>{used}</code> | <b>Free:</b> <code>{free}</code>\n'\
-            f'<b>T-Up:</b> <code>{sent}</code> | <b>T-Dn:</b> <code>{recv}</code>\n'\
-            f'<b>CPU Usage:</b> <code>{cpuUsage}</code>% | <b>RAM Usage:</b> <code>{mem_p}%</code>\n'
+    mem_t = get_readable_file_size(memory.total)
+    mem_a = get_readable_file_size(memory.available)
+    mem_u = get_readable_file_size(memory.used)
+    stats = f'<b>┌ Version:</b> {botVersion}\n'\
+            f'<b>├ Updated On:</b> {last_commit}\n'\
+            f'<b>├ Bot Uptime:</b> {currentTime}\n'\
+            f'<b>├ OS Uptime:</b> {osUptime}\n'\
+            f'<b>├ Total Disk:</b> {total}\n'\
+            f'<b>├ Used:</b> {used}\n'\
+            f'<b>├ Free:</b> {free}\n'\
+            f'<b>├ T-Upload:</b> {sent}\n'\
+            f'<b>├ T-Download:</b> {recv}\n'\
+            f'<b>├ CPU:</b> {cpuUsage}%\n'\
+            f'<b>├ RAM:</b> {mem_p}%\n'\
+            f'<b>├ DISK:</b> {disk}%\n'\
+            f'<b>├ Physical Cores:</b> {p_core}\n'\
+            f'<b>├ Total Cores:</b> {t_core}\n'\
+            f'<b>├ SWAP:</b> {swap_t}\n'\
+            f'<b>├ Used:</b> {swap_p}%\n'\
+            f'<b>├ Memory Total:</b> {mem_t}\n'\
+            f'<b>├ Memory Free:</b> {mem_a}\n'\
+            f'<b>└ Memory Used:</b> {mem_u}\n'\
     if heroku := getHerokuDetails(HEROKU_API_KEY, HEROKU_APP_NAME):
         stats += heroku
     sendMessage(stats, context.bot, update.message)
 
 def start(update, context):
     buttons = ButtonMaker()
-    buttons.buildbutton("Report Group", "https://t.me/Mltb_chat_unofficial")
-    buttons.buildbutton("Repo", "https://github.com/Dawn-India/Z-Mirror")
-    buttons.buildbutton("Mirror Group", "https://t.me/z_mirror")
-    buttons.buildbutton("Owner", "https://t.me/dawn_in")
+    buttons.buildbutton("Owner", "https://t.me/ak_nh4")
+    buttons.buildbutton("Mirror Group", "https://t.me/AK_Mirror")
+    buttons.buildbutton("Repo", "https://github.com/Adhil-AK/AK-Mirror-Leech-Bot")
+    buttons.buildbutton("Support Group", "https://t.me/Mltb_chat_unofficial")
     reply_markup = InlineKeyboardMarkup(buttons.build_menu(2))
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
         start_string = f'''
-Welcome | Z Mirror service is ready for you
-Type /{BotCommands.HelpCommand} to get a list of available commands
+Welcome! AK MIRROR BOT is ready for you | I can mirror all your links/Torrents to Google Drive and can leech to Telegram!
+Type /{BotCommands.HelpCommand} to get a list of available commands.
 '''
         sendMarkup(start_string, context.bot, update.message, reply_markup)
     else:
-        sendMarkup('Sorry, You cannot use me', context.bot, update.message, reply_markup)
+        sendMarkup('Sorry bruh, you cannot use me.', context.bot, update.message, reply_markup)
 
 def restart(update, context):
     restart_message = sendMessage("Restarting...", context.bot, update.message)
@@ -154,7 +179,7 @@ help_string_telegraph = f'''<br>
 '''
 
 help = telegraph.create_page(
-        title='Z-Mirror-Bot Help',
+        title='AK MIRROR Bot Help',
         content=help_string_telegraph,
     )["path"]
 
@@ -239,7 +264,7 @@ def main():
     dispatcher.add_handler(stats_handler)
     dispatcher.add_handler(log_handler)
     updater.start_polling(drop_pending_updates=IGNORE_PENDING_REQUESTS)
-    LOGGER.info("Congratulations, Bot Started Sucessfully !")
+    LOGGER.info("Bot Started!")
     signal(SIGINT, exit_clean_up)
 
 app.start()
