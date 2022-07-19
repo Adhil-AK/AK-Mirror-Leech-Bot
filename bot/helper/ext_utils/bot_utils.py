@@ -367,7 +367,7 @@ def bot_sys_stats():
 ├ Free: {free}
 └ Used: {disk}% = {used}
 
-Made with ❤️ by Adhil
+Made with ❤️ by AH
 """
     return stats
 dispatcher.add_handler(
