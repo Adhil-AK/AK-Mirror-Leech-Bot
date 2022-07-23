@@ -339,7 +339,7 @@ def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=Fals
             if user.status not in ['member', 'creator', 'administrator']:
                 buttons.buildbutton( f"{TITLE_NAME_A}", f"https://t.me/{CHANNEL_USERNAME}")
                 reply_markup = InlineKeyboardMarkup(buttons.build_menu(1))
-                return sendMarkup( f"{FSUB_MESSAGE}", bot, message, reply_markup)
+                return sendMarkup( f"( f'{FSUB_MESSAGE}')", bot, message, reply_markup)
         except Exception as e:
             LOGGER.info(str(e))
 
