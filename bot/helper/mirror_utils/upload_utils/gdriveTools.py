@@ -17,7 +17,7 @@ from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_excep
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot import parent_id, DOWNLOAD_DIR, IS_TEAM_DRIVE, INDEX_URL, USE_SERVICE_ACCOUNTS, BUTTON_FOUR_NAME, \
                 BUTTON_FOUR_URL, BUTTON_FIVE_NAME, BUTTON_FIVE_URL, BUTTON_SIX_NAME, BUTTON_SIX_URL, VIEW_LINK, \
-                DRIVES_NAMES, DRIVES_IDS, INDEX_URLS, EXTENSION_FILTER
+                DRIVES_NAMES, DRIVES_IDS, INDEX_URLS, EXTENSION_FILTER, TITLE_NAME_B
 from bot.helper.ext_utils.telegraph_helper import telegraph
 from bot.helper.ext_utils.bot_utils import get_readable_file_size, setInterval
 from bot.helper.ext_utils.fs_utils import get_mime_type, get_path_size
@@ -160,7 +160,7 @@ class GoogleDriveHelper:
         # File body description
         file_metadata = {
             'name': file_name,
-            'description': 'Uploaded by AK-Mirror-Leech-Bot',
+            'description': f'Uploaded by {TITLE_NAME_B}',
             'mimeType': mime_type,
         }
         if parent_id is not None:
@@ -188,7 +188,9 @@ class GoogleDriveHelper:
         drive_file = self.__service.files().create(supportsTeamDrives=True,
                                                    body=file_metadata, media_body=media_body)
         response = None
-        while response is None and not self.is_cancelled:
+        while response is None:
+            if self.is_cancelled:
+                break
             try:
                 self.status, response = drive_file.next_chunk()
             except HttpError as err:
@@ -424,7 +426,7 @@ class GoogleDriveHelper:
     def __create_directory(self, directory_name, parent_id):
         file_metadata = {
             "name": directory_name,
-            "description": "Uploaded by AK-Mirror-Leech-Bot",
+            "description": f"Uploaded by {TITLE_NAME_B}",
             "mimeType": self.__G_DRIVE_DIR_MIME_TYPE
         }
         if parent_id is not None:
@@ -493,7 +495,7 @@ class GoogleDriveHelper:
             str = str.replace(char, '\\' + char)
         return str.strip()
 
-    def __get_recursive_list(self, file, rootid = "root"):
+    def __get_recursive_list(self, file, rootid):
         rtnlist = []
         if not rootid:
             rootid = file.get('teamDriveId')
@@ -593,6 +595,7 @@ class GoogleDriveHelper:
         fileName = self.__escapes(str(fileName))
         contents_count = 0
         telegraph_content = []
+        path = []
         Title = False
         if len(DRIVES_IDS) > 1:
             token_service = self.__alt_authorize()
@@ -667,7 +670,7 @@ class GoogleDriveHelper:
 
         path = [
             telegraph.create_page(
-                title='AK-Mirror-Leech-Bot Drive Search', content=content
+                title= f'{TITLE_NAME_B} Drive Search', content=content
             )["path"]
             for content in telegraph_content
         ]
@@ -789,10 +792,10 @@ class GoogleDriveHelper:
             meta = self.__getFileMetadata(file_id)
             path = f"{DOWNLOAD_DIR}{self.__listener.uid}/"
             if meta.get("mimeType") == self.__G_DRIVE_DIR_MIME_TYPE:
-                self.__download_folder(file_id, path, meta.get('name'))
+                self.__download_folder(file_id, path, self.name)
             else:
                 makedirs(path)
-                self.__download_file(file_id, path, meta.get('name'), meta.get('mimeType'))
+                self.__download_file(file_id, path, self.name, meta.get('mimeType'))
         except Exception as err:
             if isinstance(err, RetryError):
                 LOGGER.info(f"Total Attempts: {err.last_attempt.attempt_number}")
