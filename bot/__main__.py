@@ -7,7 +7,7 @@ from sys import executable
 from telegram import InlineKeyboardMarkup
 from telegram.ext import CommandHandler
 from bot import bot, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER,\
-                DB_URI, alive, app, main_loop, HEROKU_API_KEY, HEROKU_APP_NAME, AUTHORIZED_CHATS, TITLE_NAME_A, TITLE_NAME_B
+                DB_URI, alive, app, main_loop, HEROKU_API_KEY, HEROKU_APP_NAME, AUTHORIZED_CHATS, CHANNEL_USERNAME, TITLE_NAME_B
 from .helper.ext_utils.fs_utils import start_cleanup, clean_all, exit_clean_up
 from .helper.ext_utils.telegraph_helper import telegraph
 from .helper.ext_utils.bot_utils import get_readable_file_size, get_readable_time
@@ -70,7 +70,7 @@ def stats(update, context):
     if heroku := getHerokuDetails(HEROKU_API_KEY, HEROKU_APP_NAME):
         stats += heroku
     else:
-        stats += f'<b>╰──《 {TITLE_NAME_A} 》</b>'
+        stats += f'<b>╰──《 {CHANNEL_USERNAME} 》</b>'
     sendMessage(stats, context.bot, update.message)
 
 def start(update, context):
@@ -82,12 +82,12 @@ def start(update, context):
     reply_markup = InlineKeyboardMarkup(buttons.build_menu(2))
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
         start_string = f'''
-Welcome! AK MIRROR BOT is ready for you | I can mirror all your links/Torrents to Google Drive and can leech to Telegram!
+Welcome! AK Mirror Leech Bot is ready for you | I can mirror all your links/Torrents to Google Drive and can leech to Telegram!
 Type /{BotCommands.HelpCommand} to get a list of available commands.
 '''
         sendMarkup(start_string, context.bot, update.message, reply_markup)
     else:
-        sendMarkup('Sorry bruh, you cannot use me.', context.bot, update.message, reply_markup)
+        sendMarkup('Sorry bruh, you cannot use me. Deploy your own AK-Mirror-Leech-Bot if you want(@AK_Mirror) or join mirror group', context.bot, update.message, reply_markup)
 
 def restart(update, context):
     restart_message = sendMessage("Restarting...", context.bot, update.message)

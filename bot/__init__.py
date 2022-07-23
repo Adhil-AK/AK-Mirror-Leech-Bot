@@ -502,8 +502,8 @@ try:
     if len(CHANNEL_USERNAME) == 0:
         raise KeyError
 except KeyError:
-    log_info("CHANNEL_USERNAME not provided! Using default @AK_Mirror")
-    CHANNEL_USERNAME = "AK_Mirror"
+    log_info("CHANNEL_USERNAME not provided! Using default @AK_MIRROR")
+    CHANNEL_USERNAME = "AK_MIRROR"
 try:
     FSUB_CHANNEL_ID = getConfig("FSUB_CHANNEL_ID")
     if len(FSUB_CHANNEL_ID) == 0:
@@ -526,15 +526,9 @@ except KeyError:
 try:
     TITLE_NAME_B = getConfig('TITLE_NAME_B')
     if len(TITLE_NAME_B) == 0:
-        TITLE_NAME_B = 'AK-MIRROR-LEECH-BOT'
+        TITLE_NAME_B = 'AK-Mirror-Leech-Bot'
 except KeyError:
-    TITLE_NAME_B = 'AK-MIRROR-LEECH-BOT'
-try:
-    FSUB_MESSAGE = getConfig(f"FSUB_MESSAGE")
-    if len(FSUB_MESSAGE) == 0:
-        FSUB_MESSAGE = f"<b>Dear {uname}️,\n\nI found that you haven't joined our Updates Channel yet.\n\nJoin and Use Bots Without Restrictions.</b>"
-except KeyError:
-    FSUB_MESSAGE = f"<b>Dear {uname}️,\n\nI found that you haven't joined our Updates Channel yet.\n\nJoin and Use Bots Without Restrictions.</b>"
+    TITLE_NAME_B = 'AK-Mirror-Leech-Bot'
 try:
     TOKEN_PICKLE_URL = getConfig('TOKEN_PICKLE_URL')
     if len(TOKEN_PICKLE_URL) == 0:
