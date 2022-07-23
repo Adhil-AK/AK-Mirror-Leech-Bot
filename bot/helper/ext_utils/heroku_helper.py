@@ -1,7 +1,7 @@
 from bot.helper.ext_utils.bot_utils import get_readable_time
 from subprocess import run
 from requests import Session
-from bot import LOGGER
+from bot import LOGGER, TITLE_NAME_A
 from random import randint
 
 def getRandomUserAgent():
@@ -66,7 +66,7 @@ def getHerokuDetails(h_api_key, h_app_name):
         stats += f"<b>├ Used:</b> {get_readable_time(quota_used)}\n"
         stats += f"<b>├ Available:</b> {get_readable_time(quota_remain)}\n"
         stats += f"<b>│</b>\n"
-        stats += f"<b>╰──《 @AK_MIRROR 》</b>"
+        stats += f"<b>╰──《 {TITLE_NAME_A} 》</b>"
         return stats
     except Exception as error:
         LOGGER.error(error)

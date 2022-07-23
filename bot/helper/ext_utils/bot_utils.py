@@ -40,7 +40,7 @@ class MirrorStatus:
 class EngineStatus:
     STATUS_ARIA = "Aria2c v1.35.0"
     STATUS_GD = "Google Api v2.51.0"
-    STATUS_MEGA = "MegaSDK v3.12.0"
+    STATUS_MEGA = "Mega Api v3.12.0"
     STATUS_QB = "qBittorrent v4.4.2"
     STATUS_TG = "Pyrogram v2.0.27"
     STATUS_YT = "YT-dlp v22.5.18"
@@ -145,7 +145,7 @@ def get_readable_message():
             msg += f"\n <code>{escape(str(download.name()))}</code>"
             msg += f"\n<b>┌ Status:</b> <i>{download.status()}</i>"
             if download.status() not in [MirrorStatus.STATUS_SEEDING]:
-                msg += f"\n├ {get_progress_bar_string(download)}\n<b>├ Progress:</b> {download.progress()}"
+                msg += f"\n<b>├</b>{get_progress_bar_string(download)}\n<b>├ Progress:</b> {download.progress()}"
                 if download.status() in [MirrorStatus.STATUS_DOWNLOADING,
                                          MirrorStatus.STATUS_WAITING,
                                          MirrorStatus.STATUS_PAUSE]:
@@ -161,9 +161,9 @@ def get_readable_message():
                 elif download.status() == MirrorStatus.STATUS_SPLITTING:
                     msg += f"\n<b>├ Splitted:</b> {get_readable_file_size(download.processed_bytes())}\n<b>├ Total Size: </b>{download.size()}"
                 msg += f"\n<b>├ Speed:</b> {download.speed()}\n<b>├ ETA:</b> {download.eta()}"
-                msg += f"\n<b>├ Elapsed : </b>{get_readable_time(time() - download.message.date.timestamp())}"
-                msg += f'\n<b>├ Req By :</b> <a href="https://t.me/c/{str(download.message.chat.id)[4:]}/{download.message.message_id}">{download.message.from_user.first_name}</a>'
-                msg += f"\n<b>├ Engine :</b> {download.eng()}"
+                msg += f"\n<b>├ Elapsed: </b>{get_readable_time(time() - download.message.date.timestamp())}"
+                msg += f'\n<b>├ Req By:</b> <a href="https://t.me/c/{str(download.message.chat.id)[4:]}/{download.message.message_id}">{download.message.from_user.first_name}</a>'
+                msg += f"\n<b>├ Engine:</b> {download.eng()}"
                 try:
                     msg += f"\n<b>├ Seeders:</b> {download.aria_download().num_seeders}" \
                            f"\n<b>├ Peers:</b> {download.aria_download().connections}"
@@ -195,7 +195,7 @@ def get_readable_message():
             if STATUS_LIMIT is not None and index == STATUS_LIMIT:
                 break
         if len(msg) == 0:
-            return None
+            return None, None
         bmsg = f"\n▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n<b>CPU:</b> {cpu_percent()}% | <b>FREE:</b> {get_readable_file_size(disk_usage(DOWNLOAD_DIR).free)}"
         bmsg += f"\n<b>RAM:</b> {virtual_memory().percent}% | <b>UPTM:</b> {get_readable_time(time() - botStartTime)}"
         dlspeed_bytes = 0
@@ -219,7 +219,7 @@ def get_readable_message():
         sbutton = InlineKeyboardMarkup(buttons.build_menu(1))
 
         if STATUS_LIMIT is not None and tasks > STATUS_LIMIT:
-            msg += f"\n<b>Total Tasks:</b> {tasks}\n"
+            msg += f"\n<b>Total Tasks:</b> {tasks}"
             buttons = ButtonMaker()
             buttons.sbutton("Prev", "status pre")
             buttons.sbutton(f"{PAGE_NO}/{pages}", str(THREE))
@@ -357,17 +357,24 @@ def bot_sys_stats():
                 num_extract += 1
        if stats.status() == MirrorStatus.STATUS_SPLITTING:
                 num_split += 1
-    stats = f"BOT STATISTICS"
-    stats += f"""
-
-┌ Bot Uptime: {currentTime}
+    stats = f"""
+BOT STATISTICS
+┌ UPTIME: {currentTime}
 ├ T-DL: {recv}
 ├ T-UP: {sent}
 ├ CPU: {cpu}%
 ├ RAM: {mem}%
-├ Disk: {total}
-├ Free: {free}
-└ Used: {disk}% = {used}
+├ DISK: {total}
+├ FREE: {free}
+└ USED: {disk}% = {used}
+
+ONGOING TASKS
+┌ DL: {num_active}
+├ UP: {num_upload}
+├ ZIP: {num_archi}
+├ UNZIP: {num_extract}
+├ SPLIT: {num_split}
+└ TOTAL: {tasks} 
 
 Made with ❤️ by Adhil
 """
