@@ -530,7 +530,7 @@ try:
 except KeyError:
     TITLE_NAME_B = 'AK-MIRROR-LEECH-BOT'
 try:
-    FSUB_MESSAGE = getConfig(f"FSUB_MESSAGE")
+    FSUB_MESSAGE = getConfig(f'FSUB_MESSAGE')
     if len(FSUB_MESSAGE) == 0:
         FSUB_MESSAGE = f"<b>Dear {uname}️,\n\nI found that you haven't joined our Updates Channel yet.\n\nJoin and Use Bots Without Restrictions.</b>"
 except KeyError:
