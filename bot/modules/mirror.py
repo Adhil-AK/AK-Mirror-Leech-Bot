@@ -13,7 +13,7 @@ from telegram import InlineKeyboardMarkup, ParseMode, InlineKeyboardButton
 from bot import bot, Interval, INDEX_URL, BUTTON_FOUR_NAME, BUTTON_FOUR_URL, BUTTON_FIVE_NAME, BUTTON_FIVE_URL, \
                 BUTTON_SIX_NAME, BUTTON_SIX_URL, VIEW_LINK, aria2, QB_SEED, dispatcher, DOWNLOAD_DIR, \
                 download_dict, download_dict_lock, TG_SPLIT_SIZE, LOGGER, MEGA_KEY, DB_URI, INCOMPLETE_TASK_NOTIFIER, \
-                LEECH_LOG, BOT_PM, MIRROR_LOGS, FSUB, CHANNEL_USERNAME, FSUB_CHANNEL_ID, TITLE_NAME_A
+                LEECH_LOG, BOT_PM, MIRROR_LOGS, FSUB, CHANNEL_USERNAME, FSUB_CHANNEL_ID, CHANNEL_NAME
 from bot.helper.ext_utils.bot_utils import is_url, is_magnet, is_gdtot_link, is_mega_link, is_gdrive_link, get_content_type, get_readable_time
 from bot.helper.ext_utils.fs_utils import get_base_name, get_path_size, split_file, clean_download
 from bot.helper.ext_utils.shortenurl import short_url
@@ -337,7 +337,7 @@ def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=Fals
             uname = message.from_user.mention_html(message.from_user.first_name)
             user = bot.get_chat_member(FSUB_CHANNEL_ID, message.from_user.id)
             if user.status not in ['member', 'creator', 'administrator']:
-                buttons.buildbutton( f"{TITLE_NAME_A}", f"https://t.me/{CHANNEL_USERNAME}")
+                buttons.buildbutton(f"{CHANNEL_NAME}", f"https://t.me/{CHANNEL_USERNAME}")
                 reply_markup = InlineKeyboardMarkup(buttons.build_menu(1))
                 return sendMarkup(f"<b>Dear {uname}️,\n\nYou haven't joined our Updates Channel yet.\n\nJoin to <u>Use Bots Without Restrictions.</u></b>", bot, message, reply_markup)
         except Exception as e:

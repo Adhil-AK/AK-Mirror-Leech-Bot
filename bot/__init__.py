@@ -518,17 +518,17 @@ try:
 except KeyError:
     BOT_PM = False
 try:
-    TITLE_NAME_A = getConfig('TITLE_NAME_A')
-    if len(TITLE_NAME_A) == 0:
-        TITLE_NAME_A = 'AK-MIRROR'
+    CHANNEL_NAME = getConfig('CHANNEL_NAME')
+    if len(CHANNEL_NAME) == 0:
+        CHANNEL_NAME = 'AK-MIRROR'
 except KeyError:
-    TITLE_NAME_A = 'AK-MIRROR'
+    CHANNEL_NAME = 'AK-MIRROR'
 try:
-    TITLE_NAME_B = getConfig('TITLE_NAME_B')
-    if len(TITLE_NAME_B) == 0:
-        TITLE_NAME_B = 'AK-Mirror-Leech-Bot'
+    TITLE_NAME = getConfig('TITLE_NAME')
+    if len(TITLE_NAME) == 0:
+        TITLE_NAME = 'AK-Mirror-Leech-Bot'
 except KeyError:
-    TITLE_NAME_B = 'AK-Mirror-Leech-Bot'
+    TITLE_NAME = 'AK-Mirror-Leech-Bot'
 try:
     TOKEN_PICKLE_URL = getConfig('TOKEN_PICKLE_URL')
     if len(TOKEN_PICKLE_URL) == 0:
