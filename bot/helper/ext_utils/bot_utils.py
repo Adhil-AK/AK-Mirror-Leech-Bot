@@ -358,15 +358,16 @@ def bot_sys_stats():
        if stats.status() == MirrorStatus.STATUS_SPLITTING:
                 num_split += 1
     stats = f"""
-BOT UPTM: {currentTime}
-T-DL: {recv} || T-UP: {sent}
-CPU: {cpu}% || RAM: {mem}%
-DISK: {total} || FREE: {free}
-USED: {disk}% = {used}
 
-ONGOING TASKS:
-DL: {num_active} || UP: {num_upload} || SPLIT: {num_split}
-ZIP: {num_archi} || UNZIP: {num_extract} || TOTAL: {tasks}
+BOT UPTIME : {currentTime}
+T-DL : {recv} || T-UP : {sent}
+CPU : {cpu}% || RAM : {mem}%
+DISK : {total} || FREE : {free}
+USED : {disk}% = {used}
+
+ONGOING TASKS : {tasks}
+DL : {num_active} || UP : {num_upload}
+ZIP : {num_archi} || UNZIP : {num_extract} || SPLIT : {num_split}
 """
     return stats
 dispatcher.add_handler(
