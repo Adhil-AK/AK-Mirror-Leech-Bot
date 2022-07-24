@@ -358,7 +358,7 @@ def bot_sys_stats():
        if stats.status() == MirrorStatus.STATUS_SPLITTING:
                 num_split += 1
     stats = f"""
-BOT UPTIME: {currentTime}
+BOT UPTM: {currentTime}
 T-DL: {recv} || T-UP: {sent}
 CPU: {cpu}% || RAM: {mem}%
 DISK: {total} || FREE: {free}
