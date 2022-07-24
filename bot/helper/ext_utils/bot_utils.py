@@ -360,21 +360,15 @@ def bot_sys_stats():
     stats = f"""
 BOT STATISTICS
 ┌ UPTIME: {currentTime}
-├ T-DL: {recv}
-├ T-UP: {sent}
-├ CPU: {cpu}%
-├ RAM: {mem}%
-├ DISK: {total}
-├ FREE: {free}
+├ T-DL: {recv} || T-UP: {sent}
+├ CPU: {cpu}% || RAM: {mem}%
+├ DISK: {total} || FREE: {free}
 └ USED: {disk}% = {used}
 
 ONGOING TASKS
-┌ DL: {num_active}
-├ UP: {num_upload}
-├ ZIP: {num_archi}
-├ UNZIP: {num_extract}
-├ SPLIT: {num_split}
-└ TOTAL: {tasks}
+┌ DL: {num_active} || UP: {num_upload}
+├ ZIP: {num_archi} || UNZIP: {num_extract}
+└ SPLIT: {num_split} || TOTAL: {tasks}
 """
     return stats
 dispatcher.add_handler(
