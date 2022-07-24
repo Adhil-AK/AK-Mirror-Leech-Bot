@@ -358,11 +358,10 @@ def bot_sys_stats():
        if stats.status() == MirrorStatus.STATUS_SPLITTING:
                 num_split += 1
     stats = f"""
-BOT STATISTICS
-┌ UPTIME: {currentTime}
-├ T-DL: {recv} || T-UP: {sent}
+┌ BOT UPTIME: {currentTime}\n
+├ T-DL: {recv} || T-UP: {sent}\n
 ├ CPU: {cpu}% || RAM: {mem}%
-├ DISK: {total} || FREE: {free}
+├ DISK: {total} || FREE: {free}\n
 └ USED: {disk}% = {used}
 
 ONGOING TASKS
