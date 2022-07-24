@@ -374,9 +374,7 @@ ONGOING TASKS
 ├ ZIP: {num_archi}
 ├ UNZIP: {num_extract}
 ├ SPLIT: {num_split}
-└ TOTAL: {tasks} 
-
-Made with ❤️ by Adhil
+└ TOTAL: {tasks}
 """
     return stats
 dispatcher.add_handler(
