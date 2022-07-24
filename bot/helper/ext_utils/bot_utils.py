@@ -363,6 +363,7 @@ T-DL: {recv} || T-UP: {sent}
 CPU: {cpu}% || RAM: {mem}%
 DISK: {total} || FREE: {free}
 USED: {disk}% = {used}
+
 ONGOING TASKS:
 DL: {num_active} || UP: {num_upload} || SPLIT: {num_split}
 ZIP: {num_archi} || UNZIP: {num_extract} || TOTAL: {tasks}
