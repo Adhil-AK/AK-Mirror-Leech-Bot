@@ -364,9 +364,8 @@ def bot_sys_stats():
 ├ DISK: {total} || FREE: {free}
 └ USED: {disk}% = {used}
 ONGOING TASKS:
-┌ DL: {num_active} || UP: {num_upload}
-├ ZIP: {num_archi} || UNZIP: {num_extract}
-└ SPLIT: {num_split} || TOTAL: {tasks}
+┌ DL: {num_active} || UP: {num_upload} || TOTAL: {tasks}
+└ ZIP: {num_archi} || UNZIP: {num_extract} || SPLIT: {num_split}
 """
     return stats
 dispatcher.add_handler(
