@@ -174,6 +174,7 @@ def get_readable_message():
                     msg += f"\n<b>├ Seeders:</b> {download.torrent_info().num_seeds}" \
                            f"\n<b>├ Leechers:</b> {download.torrent_info().num_leechs}"
 #                     msg += f'\n<b>├ TEngine: </b><a href="https://www.qbittorrent.org">qBittorrent</a>'
+                    msg += f"\n<b>├ Sel:</b> <code>/{BotCommands.QbSelectCommand} {download.gid()}</code>"
                 except:
                     pass
 
@@ -358,7 +359,7 @@ def bot_sys_stats():
        if stats.status() == MirrorStatus.STATUS_SPLITTING:
                 num_split += 1
     stats = f"""
-BOT UPTIME: {currentTime}
+BOT UPTIME : {currentTime}
 
 CPU : {cpu}% || RAM : {mem}%
 
