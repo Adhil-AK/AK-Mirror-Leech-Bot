@@ -9,12 +9,8 @@ from time import time
 from math import ceil
 from re import split as re_split, I
 from .exceptions import NotSupportedExtractionArchive
-from bot import aria2, app, LOGGER, DOWNLOAD_DIR, get_client, TG_SPLIT_SIZE, EQUAL_SPLITS, IS_PREMIUM_USER, STORAGE_THRESHOLD
+from bot import aria2, app, LOGGER, DOWNLOAD_DIR, get_client, TG_SPLIT_SIZE, EQUAL_SPLITS, STORAGE_THRESHOLD, premium_session
 
-if IS_PREMIUM_USER:
-    MAX_SPLIT_SIZE = 4194304000
-else:
-    MAX_SPLIT_SIZE = 2097152000
 VIDEO_SUFFIXES = ("M4V", "MP4", "MOV", "FLV", "WMV", "3GP", "MPG", "WEBM", "MKV", "AVI")
 
 ARCH_EXT = [".tar.bz2", ".tar.gz", ".bz2", ".gz", ".tar.xz", ".tar", ".tbz2", ".tgz", ".lzma2",
@@ -41,6 +37,7 @@ def clean_all():
     aria2.remove_all(True)
     get_client().torrents_delete(torrent_hashes="all")
     app.stop()
+    if premium_session: premium_session.stop()
     try:
         rmtree(DOWNLOAD_DIR)
     except:
@@ -120,7 +117,7 @@ def take_ss(video_file):
 
     if status.returncode != 0 or not ospath.lexists(des_dir):
         return None
-
+    
     with Image.open(des_dir) as img:
         img.convert("RGB").save(des_dir, "JPEG")
 
@@ -133,17 +130,17 @@ def split_file(path, size, file_, dirpath, split_size, listener, start_time=0, i
     if file_.upper().endswith(VIDEO_SUFFIXES):
         base_name, extension = ospath.splitext(file_)
         split_size = split_size - 5000000
-        while i <= parts :
-            parted_name = "{}.part{}{}".format(str(base_name), str(i).zfill(3), str(extension))
+        while i <= parts:
+            parted_name = f"{str(base_name)}.part{str(i).zfill(3)}{str(extension)}"
             out_path = ospath.join(dirpath, parted_name)
-            listener.split_proc = Popen(["new-api", "-hide_banner", "-loglevel", "error", "-ss", str(start_time),
+            listener.suproc = Popen(["new-api", "-hide_banner", "-loglevel", "error", "-ss", str(start_time),
                   "-i", path, "-fs", str(split_size), "-map", "0", "-map_chapters", "-1", "-c", "copy", out_path])
-            listener.split_proc.wait()
-            if listener.split_proc.returncode == -9:
+            listener.suproc.wait()
+            if listener.suproc.returncode == -9:
                 return False
             out_size = get_path_size(out_path)
-            if out_size > MAX_SPLIT_SIZE:
-                dif = out_size - MAX_SPLIT_SIZE
+            if out_size > (TG_SPLIT_SIZE + 1000):
+                dif = out_size - (TG_SPLIT_SIZE + 1000)
                 split_size = split_size - dif + 5000000
                 osremove(out_path)
                 return split_file(path, size, file_, dirpath, split_size, listener, start_time, i, True)
@@ -158,9 +155,9 @@ def split_file(path, size, file_, dirpath, split_size, listener, start_time=0, i
             i = i + 1
     else:
         out_path = ospath.join(dirpath, file_ + ".")
-        listener.split_proc = Popen(["split", "--numeric-suffixes=1", "--suffix-length=3", f"--bytes={split_size}", path, out_path])
-        listener.split_proc.wait()
-        if listener.split_proc.returncode == -9:
+        listener.suproc = Popen(["split", "--numeric-suffixes=1", "--suffix-length=3", f"--bytes={split_size}", path, out_path])
+        listener.suproc.wait()
+        if listener.suproc.returncode == -9:
             return False
     return True
 
