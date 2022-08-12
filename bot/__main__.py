@@ -14,10 +14,11 @@ from .helper.ext_utils.bot_utils import get_readable_file_size, get_readable_tim
 from .helper.ext_utils.db_handler import DbManger
 from .helper.ext_utils.heroku_helper import getHerokuDetails
 from .helper.telegram_helper.bot_commands import BotCommands
-from .helper.telegram_helper.message_utils import sendMessage, sendMarkup, editMessage, sendLogFile
+from .helper.telegram_helper.message_utils import sendMessage, sendMarkup, editMessage, sendLogFile, auto_delete_message
 from .helper.telegram_helper.filters import CustomFilters
 from .helper.telegram_helper.button_build import ButtonMaker
 from .modules import authorize, list, cancel_mirror, mirror_status, mirror, clone, watch, shell, eval, delete, count, leech_settings, search, rss, qbselect
+from threading import Thread
 
 def stats(update, context):
     if ospath.exists('.git'):
@@ -69,9 +70,9 @@ def stats(update, context):
             f'<b>│</b>\n'
     if heroku := getHerokuDetails(HEROKU_API_KEY, HEROKU_APP_NAME):
         stats += heroku
-    else:
-        stats += f'<b>╰──《 @{CHANNEL_USERNAME} 》</b>'
-    sendMessage(stats, context.bot, update.message)
+    stats += f'<b>╰──《 @{CHANNEL_USERNAME} 》</b>'
+    reply_message = sendMessage(stats, context.bot, update.message)
+    Thread(target=auto_delete_message, args=(context.bot, update.message, reply_message)).start()
 
 def start(update, context):
     buttons = ButtonMaker()
@@ -82,7 +83,7 @@ def start(update, context):
     reply_markup = InlineKeyboardMarkup(buttons.build_menu(2))
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
         start_string = f'''
-Welcome! AK Mirror Leech Bot is ready for you | I can mirror all your links/Torrents to Google Drive and can leech to Telegram!
+Welcome! {TITLE_NAME} is ready for you | I can mirror all your links/Torrents to Google Drive and can leech to Telegram!
 Type /{BotCommands.HelpCommand} to get a list of available commands.
 '''
         sendMarkup(start_string, context.bot, update.message, reply_markup)
