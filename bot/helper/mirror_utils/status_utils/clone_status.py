@@ -1,5 +1,6 @@
 from bot.helper.ext_utils.bot_utils import MirrorStatus, get_readable_file_size, get_readable_time, EngineStatus
 
+
 class CloneStatus:
     def __init__(self, obj, size, message, gid):
         self.__obj = obj
@@ -55,4 +56,3 @@ class CloneStatus:
 
     def eng(self):
         return EngineStatus.STATUS_GD
-

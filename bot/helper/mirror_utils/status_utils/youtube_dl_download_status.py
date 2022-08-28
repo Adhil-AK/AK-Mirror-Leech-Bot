@@ -12,6 +12,7 @@ class YoutubeDLDownloadStatus:
     def gid(self):
         return self.__gid
 
+
     def processed_bytes(self):
         if self.__obj.downloaded_bytes != 0:
           return self.__obj.downloaded_bytes

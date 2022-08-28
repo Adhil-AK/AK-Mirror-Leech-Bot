@@ -1,6 +1,6 @@
 from os import remove as osremove, path as ospath, mkdir, walk, listdir, rmdir, makedirs
 from sys import exit as sysexit
-from json import loads as jsnloads
+from json import loads as jsonloads
 from shutil import rmtree, disk_usage
 from PIL import Image
 from magic import Magic
@@ -11,12 +11,25 @@ from re import split as re_split, I
 from .exceptions import NotSupportedExtractionArchive
 from bot import aria2, app, LOGGER, DOWNLOAD_DIR, get_client, TG_SPLIT_SIZE, EQUAL_SPLITS, STORAGE_THRESHOLD, premium_session
 
-VIDEO_SUFFIXES = ("M4V", "MP4", "MOV", "FLV", "WMV", "3GP", "MPG", "WEBM", "MKV", "AVI")
 
 ARCH_EXT = [".tar.bz2", ".tar.gz", ".bz2", ".gz", ".tar.xz", ".tar", ".tbz2", ".tgz", ".lzma2",
-                ".zip", ".7z", ".z", ".rar", ".iso", ".wim", ".cab", ".apm", ".arj", ".chm",
-                ".cpio", ".cramfs", ".deb", ".dmg", ".fat", ".hfs", ".lzh", ".lzma", ".mbr",
-                ".msi", ".mslz", ".nsis", ".ntfs", ".rpm", ".squashfs", ".udf", ".vhd", ".xar"]
+            ".zip", ".7z", ".z", ".rar", ".iso", ".wim", ".cab", ".apm", ".arj", ".chm",
+            ".cpio", ".cramfs", ".deb", ".dmg", ".fat", ".hfs", ".lzh", ".lzma", ".mbr",
+            ".msi", ".mslz", ".nsis", ".ntfs", ".rpm", ".squashfs", ".udf", ".vhd", ".xar"]
+
+def clean_target(path: str):
+    if ospath.exists(path):
+        LOGGER.info(f"Cleaning Target: {path}")
+        if ospath.isdir(path):
+            try:
+                rmtree(path)
+            except:
+                pass
+        elif ospath.isfile(path):
+            try:
+                osremove(path)
+            except:
+                pass
 
 def clean_download(path: str):
     if ospath.exists(path):
@@ -58,9 +71,8 @@ def clean_unwanted(path: str):
         for filee in files:
             if filee.endswith(".!qB") or filee.endswith('.parts') and filee.startswith('.'):
                 osremove(ospath.join(dirpath, filee))
-        for folder in subdir:
-            if folder == ".unwanted":
-                rmtree(ospath.join(dirpath, folder))
+        if dirpath.endswith((".unwanted", "splited_files_wz")):
+            rmtree(dirpath)
     for dirpath, subdir, files in walk(path, topdown=False):
         if not listdir(dirpath):
             rmdir(dirpath)
@@ -102,17 +114,18 @@ def get_mime_type(file_path):
     mime_type = mime_type or "text/plain"
     return mime_type
 
-def take_ss(video_file):
+def take_ss(video_file, duration):
     des_dir = 'Thumbnails'
     if not ospath.exists(des_dir):
         mkdir(des_dir)
     des_dir = ospath.join(des_dir, f"{time()}.jpg")
-    duration = get_media_info(video_file)[0]
+    if duration is None:
+        duration = get_media_info(video_file)[0]
     if duration == 0:
         duration = 3
     duration = duration // 2
 
-    status = srun(["new-api", "-hide_banner", "-loglevel", "error", "-ss", str(duration),
+    status = srun(["opera", "-hide_banner", "-loglevel", "error", "-ss", str(duration),
                    "-i", video_file, "-frames:v", "1", des_dir])
 
     if status.returncode != 0 or not ospath.lexists(des_dir):
@@ -124,29 +137,45 @@ def take_ss(video_file):
     return des_dir
 
 def split_file(path, size, file_, dirpath, split_size, listener, start_time=0, i=1, inLoop=False, noMap=False):
+    if listener.seed and not listener.newDir:
+        dirpath = f"{dirpath}/splited_files_wz"
+        if not ospath.exists(dirpath):
+            mkdir(dirpath)
     parts = ceil(size/TG_SPLIT_SIZE)
-    duration = get_media_info(path)[0]
     if EQUAL_SPLITS and not inLoop:
         split_size = ceil(size/parts) + 1000
-    if file_.upper().endswith(VIDEO_SUFFIXES):
+    if get_media_streams(path)[0]:
+        duration = get_media_info(path)[0]
         base_name, extension = ospath.splitext(file_)
         split_size = split_size - 5000000
         while i <= parts:
             parted_name = f"{str(base_name)}.part{str(i).zfill(3)}{str(extension)}"
             out_path = ospath.join(dirpath, parted_name)
             if not noMap:
-                listener.suproc = Popen(["new-api", "-hide_banner", "-loglevel", "error", "-ss", str(start_time),
-                 "-i", path, "-fs", str(split_size), "-map", "0", "-map_chapters", "-1", "-c", "copy", out_path])
+                listener.suproc = Popen(["opera", "-hide_banner", "-loglevel", "error", "-ss", str(start_time),
+                                         "-i", path, "-fs", str(split_size), "-map", "0", "-map_chapters", "-1",
+                                         "-c", "copy", out_path])
             else:
-                listener.suproc = Popen(["new-api", "-hide_banner", "-loglevel", "error", "-ss", str(start_time),
-                              "-i", path, "-fs", str(split_size), "-map_chapters", "-1", "-c", "copy", out_path])
+                listener.suproc = Popen(["opera", "-hide_banner", "-loglevel", "error", "-ss", str(start_time),
+                                         "-i", path, "-fs", str(split_size), "-map_chapters", "-1", "-c", "copy",
+                                         out_path])
             listener.suproc.wait()
             if listener.suproc.returncode == -9:
                 return False
             elif listener.suproc.returncode != 0 and not noMap:
-                LOGGER.warning(f'Retrying without map, -map 0 not working in all situations. Path: {path}')
-                osremove(out_path)
+                LOGGER.warning(f"Retrying without map, -map 0 not working in all situations. Path: {path}")
+                try:
+                    osremove(out_path)
+                except:
+                    pass
                 return split_file(path, size, file_, dirpath, split_size, listener, start_time, i, True, True)
+            elif listener.suproc.returncode != 0:
+                LOGGER.warning(f"Unable to split this video, if it's size less than {TG_SPLIT_SIZE} will be uploaded as it is. Path: {path}")
+                try:
+                    osremove(out_path)
+                except:
+                    pass
+                return "errored"
             out_size = get_path_size(out_path)
             if out_size > (TG_SPLIT_SIZE + 1000):
                 dif = out_size - (TG_SPLIT_SIZE + 1000)
@@ -155,7 +184,7 @@ def split_file(path, size, file_, dirpath, split_size, listener, start_time=0, i
                 return split_file(path, size, file_, dirpath, split_size, listener, start_time, i, True, noMap)
             lpd = get_media_info(out_path)[0]
             if lpd == 0:
-                LOGGER.error(f'Something went wrong while splitting, mostly file is corrupted. Path: {path}')
+                LOGGER.error(f'Something went wrong while splitting mostly file is corrupted. Path: {path}')
                 break
             elif duration == lpd:
                 LOGGER.warning(f"This file has been splitted with default stream and audio, so you will only see one part with less size from orginal one because it doesn't have all streams and audios. This happens mostly with MKV videos. noMap={noMap}. Path: {path}")
@@ -166,8 +195,9 @@ def split_file(path, size, file_, dirpath, split_size, listener, start_time=0, i
             start_time += lpd - 3
             i = i + 1
     else:
-        out_path = ospath.join(dirpath, file_ + ".")
-        listener.suproc = Popen(["split", "--numeric-suffixes=1", "--suffix-length=3", f"--bytes={split_size}", path, out_path])
+        out_path = ospath.join(dirpath, f"{file_}.")
+        listener.suproc = Popen(["split", "--numeric-suffixes=1", "--suffix-length=3",
+                                f"--bytes={split_size}", path, out_path])
         listener.suproc.wait()
         if listener.suproc.returncode == -9:
             return False
@@ -177,12 +207,12 @@ def get_media_info(path):
 
     try:
         result = check_output(["ffprobe", "-hide_banner", "-loglevel", "error", "-print_format",
-                               "json", "-show_format", path]).decode('utf-8')
+                               "json", "-show_format", "-show_streams", path]).decode('utf-8')
     except Exception as e:
-        LOGGER.error(f'{e}. Mostly file not found!')
+        LOGGER.error(f'{e} Mostly file not Found!')
         return 0, None, None
 
-    fields = jsnloads(result).get('format')
+    fields = jsonloads(result).get('format')
     if fields is None:
         LOGGER.error(f"get_media_info: {result}")
         return 0, None, None
@@ -202,3 +232,34 @@ def get_media_info(path):
         artist = None
 
     return duration, artist, title
+
+
+
+def get_media_streams(path):
+
+    is_video = False
+    is_audio = False
+
+    mime_type = get_mime_type(path)
+    if not mime_type.startswith(('video', 'audio')):
+        return is_video, is_audio
+
+    try:
+        result = check_output(["ffprobe", "-hide_banner", "-loglevel", "error", "-print_format",
+                               "json", "-show_streams", path]).decode('utf-8')
+    except Exception as e:
+        LOGGER.error(f'{e}. Mostly file not found!')
+        return is_video, is_audio
+
+    fields = jsonloads(result).get('streams')
+    if fields is None:
+        LOGGER.error(f"get_media_streams: {result}")
+        return is_video, is_audio
+
+
+    for stream in fields:
+        if stream.get('codec_type') == 'video':
+            is_video = True
+        elif stream.get('codec_type') == 'audio':
+            is_audio = True
+    return is_video, is_audio

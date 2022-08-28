@@ -2,6 +2,7 @@
 
 from string import ascii_letters
 from random import SystemRandom
+
 from time import sleep
 from telegraph import Telegraph
 from telegraph.exceptions import RetryAfterError
@@ -58,20 +59,20 @@ class TelegraphHelper:
         num_of_path = len(path)
         for content in telegraph_content :
             if nxt_page == 1 :
-                content += f'<b><a href="https://telegra.ph/{path[nxt_page]}">Next</a></b>'
+                content += f'<b><a href="https://graph.org/{path[nxt_page]}">Next</a></b>'
                 nxt_page += 1
             else :
                 if prev_page <= num_of_path:
-                    content += f'<b><a href="https://telegra.ph/{path[prev_page]}">Prev</a></b>'
+                    content += f'<b><a href="https://graph.org/{path[prev_page]}">Prev</a></b>'
                     prev_page += 1
                 if nxt_page < num_of_path:
-                    content += f'<b> | <a href="https://telegra.ph/{path[nxt_page]}">Next</a></b>'
+                    content += f'<b> | <a href="https://graph.org/{path[nxt_page]}">Next</a></b>'
                     nxt_page += 1
             self.edit_page(
                 path = path[prev_page],
-                title = f'{TITLE_NAME} Torrent Search',
+                title = f"{TITLE_NAME} Torrent Search",
                 content=content
             )
         return
 
-telegraph=TelegraphHelper( f'{TITLE_NAME}', 'https://github.com/Adhil-AK/AK-Mirror-Leech-Bot')
+telegraph=TelegraphHelper(f'{TITLE_NAME}', 'https://github.com/Adhil-AK/AK-Mirror-Leech-Bot')

@@ -1,4 +1,4 @@
-# Implemented by https://github.com/junedkh
+
 
 from random import random, choice
 

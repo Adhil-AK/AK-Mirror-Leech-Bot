@@ -3,15 +3,17 @@ from threading import Thread, Event
 from time import time
 from math import ceil
 from html import escape
+from psutil import virtual_memory, cpu_percent, disk_usage
 from requests import head as rhead
 from urllib.request import urlopen
-from bot import download_dict, download_dict_lock, STATUS_LIMIT, botStartTime, DOWNLOAD_DIR
+from telegram import InlineKeyboardMarkup
+
 from bot.helper.telegram_helper.bot_commands import BotCommands
+from bot import download_dict, download_dict_lock, STATUS_LIMIT, botStartTime, DOWNLOAD_DIR, WEB_PINCODE, BASE_URL
 from bot.helper.telegram_helper.button_build import ButtonMaker
+
 import shutil
 import psutil
-from psutil import virtual_memory, cpu_percent, disk_usage
-from telegram import InlineKeyboardMarkup
 from telegram.error import RetryAfter
 from telegram.ext import CallbackQueryHandler
 from telegram.message import Message
@@ -30,7 +32,7 @@ class MirrorStatus:
     STATUS_DOWNLOADING = "Downloading...⬙"
     STATUS_CLONING = "Cloning...♻️"
     STATUS_WAITING = "Queued...💤"
-    STATUS_PAUSE = "Paused...⛔️"
+    STATUS_PAUSED = "Paused...⛔️"
     STATUS_ARCHIVING = "Archiving...🔐"
     STATUS_EXTRACTING = "Extracting...📂"
     STATUS_SPLITTING = "Splitting...✂️"
@@ -87,7 +89,6 @@ def get_readable_file_size(size_in_bytes) -> str:
 def getDownloadByGid(gid):
     with download_dict_lock:
         for dl in list(download_dict.values()):
-            status = dl.status()
             if dl.gid() == gid:
                 return dl
     return None
@@ -95,27 +96,40 @@ def getDownloadByGid(gid):
 def getAllDownload(req_status: str):
     with download_dict_lock:
         for dl in list(download_dict.values()):
-            if dl:
-                status = dl.status()
-                if req_status == 'all':
-                    return dl
-                if req_status == 'down' and status in [MirrorStatus.STATUS_DOWNLOADING,
-                                                         MirrorStatus.STATUS_WAITING,
-                                                         MirrorStatus.STATUS_PAUSE]:
-                    return dl
-                if req_status == 'up' and status == MirrorStatus.STATUS_UPLOADING:
-                    return dl
-                if req_status == 'clone' and status == MirrorStatus.STATUS_CLONING:
-                    return dl
-                if req_status == 'seed' and status == MirrorStatus.STATUS_SEEDING:
-                    return dl
-                if req_status == 'split' and status == MirrorStatus.STATUS_SPLITTING:
-                    return dl
-                if req_status == 'extract' and status == MirrorStatus.STATUS_EXTRACTING:
-                    return dl
-                if req_status == 'archive' and status == MirrorStatus.STATUS_ARCHIVING:
-                    return dl
+            status = dl.status()
+            if req_status in ['all', status]:
+                return dl
     return None
+
+def bt_selection_buttons(id_: str):
+    if len(id_) > 20:
+        gid = id_[:12]
+    else:
+        gid = id_
+
+    pincode = ""
+    for n in id_:
+        if n.isdigit():
+            pincode += str(n)
+        if len(pincode) == 4:
+            break
+
+    buttons = ButtonMaker()
+    if WEB_PINCODE:
+        buttons.buildbutton("Select Files", f"{BASE_URL}/app/files/{id_}")
+        buttons.sbutton("Pincode", f"btsel pin {gid} {pincode}")
+    else:
+        buttons.buildbutton("Select Files", f"{BASE_URL}/app/files/{id_}?pin_code={pincode}")
+    buttons.sbutton("Done Selecting", f"btsel done {gid} {id_}")
+    return InlineKeyboardMarkup(buttons.build_menu(2))
+
+
+def get_user_task(user_id):
+    user_task = 0
+    for task in list(download_dict.values()):
+        userid = task.message.from_user.id
+        if userid == user_id: user_task += 1
+    return user_task
 
 def get_progress_bar_string(status):
     completed = status.processed_bytes() / 8
@@ -131,71 +145,22 @@ def get_progress_bar_string(status):
     p_str = f"「{p_str}」"
     return p_str
 
-def auto_delete_message(bot, cmd_message: Message, bot_message: Message):
-    if AUTO_DELETE_MESSAGE_DURATION != -1:
-        sleep(AUTO_DELETE_MESSAGE_DURATION)
-        try:
-            # Skip if None is passed meaning we don't want to delete bot xor cmd message
-            deleteMessage(bot, cmd_message)
-            deleteMessage(bot, bot_message)
-        except AttributeError:
-            pass
-
-def editMessage(text: str, message: Message, reply_markup=None):
+def progress_bar(percentage):
+    p_used = '⬢'
+    p_total = '⬡'
+    if isinstance(percentage, str):
+        return 'NaN'
     try:
-        bot.editMessageText(text=text, message_id=message.message_id,
-                              chat_id=message.chat.id,reply_markup=reply_markup,
-                              parse_mode='HTMl', disable_web_page_preview=True)
-    except RetryAfter as r:
-        LOGGER.warning(str(r))
-        sleep(r.retry_after * 1.5)
-        return editMessage(text, message, reply_markup)
-    except Exception as e:
-        LOGGER.error(str(e))
-        return str(e)
-
-def deleteMessage(bot, message: Message):
-    try:
-        bot.deleteMessage(chat_id=message.chat.id,
-                           message_id=message.message_id)
-    except Exception as e:
-        LOGGER.error(str(e))
-
-def delete_all_messages():
-    with status_reply_dict_lock:
-        for data in list(status_reply_dict.values()):
-            try:
-                deleteMessage(bot, data[0])
-                del status_reply_dict[data[0].chat.id]
-            except Exception as e:
-                LOGGER.error(str(e))
-
-def update_all_messages(force=False):
-    with status_reply_dict_lock:
-        if not force and (not status_reply_dict or not Interval or time() - list(status_reply_dict.values())[0][1] < 3):
-            return
-        for chat_id in status_reply_dict:
-            status_reply_dict[chat_id][1] = time()
-
-    msg, buttons = get_readable_message()
-    if msg is None:
-        return
-    with status_reply_dict_lock:
-        for chat_id in status_reply_dict:
-            if status_reply_dict[chat_id] and msg != status_reply_dict[chat_id][0].text:
-                if buttons == "":
-                    rmsg = editMessage(msg, status_reply_dict[chat_id][0])
-                else:
-                    rmsg = editMessage(msg, status_reply_dict[chat_id][0], buttons)
-                if rmsg == "Message to edit not found":
-                    del status_reply_dict[chat_id]
-                    return
-                status_reply_dict[chat_id][0].text = msg
-                status_reply_dict[chat_id][1] = time()
+        percentage=int(percentage)
+    except:
+        percentage = 0
+    return ''.join(
+        p_used if i <= percentage // 10 else p_total for i in range(1, 11)
+    )
 
 def get_readable_message():
     with download_dict_lock:
-        msg = ""
+        msg = f""
         if STATUS_LIMIT is not None:
             tasks = len(download_dict)
             global pages
@@ -204,95 +169,93 @@ def get_readable_message():
                 globals()['COUNT'] -= STATUS_LIMIT
                 globals()['PAGE_NO'] -= 1
         for index, download in enumerate(list(download_dict.values())[COUNT:], start=1):
-            msg += f"\n <code>{escape(str(download.name()))}</code>"
+            # msg += f"<b>╭ <a href='{download.message.link}'>{download.status()}</a>: </b>"
+            # msg += f"<code>{escape(str(download.name()))}</code>"
+            msg += f"\n<code>{escape(str(download.name()))}</code>"
             msg += f"\n<b>┌ Status:</b> <i>{download.status()}</i>"
-            if download.status() not in [MirrorStatus.STATUS_SEEDING]:
-                msg += f"\n<b>├</b>{get_progress_bar_string(download)}\n<b>├ Progress:</b> {download.progress()}"
-                if download.status() in [MirrorStatus.STATUS_DOWNLOADING,
-                                         MirrorStatus.STATUS_WAITING,
-                                         MirrorStatus.STATUS_PAUSE]:
-                    msg += f"\n<b>├ Downloaded:</b> {get_readable_file_size(download.processed_bytes())}\n<b>├ Total Size: </b>{download.size()}"
-                elif download.status() == MirrorStatus.STATUS_UPLOADING:
-                    msg += f"\n<b>├ Uploaded:</b> {get_readable_file_size(download.processed_bytes())}\n<b>├ Total Size: </b>{download.size()}"
-                elif download.status() == MirrorStatus.STATUS_CLONING:
-                    msg += f"\n<b>├ Cloned:</b> {get_readable_file_size(download.processed_bytes())}\n<b>├ Total Size: </b>{download.size()}"
-                elif download.status() == MirrorStatus.STATUS_ARCHIVING:
-                    msg += f"\n<b>├ Archived:</b> {get_readable_file_size(download.processed_bytes())}\n<b>├ Total Size: </b>{download.size()}"
-                elif download.status() == MirrorStatus.STATUS_EXTRACTING:
-                    msg += f"\n<b>├ Extracted:</b> {get_readable_file_size(download.processed_bytes())}\n<b>├ Total Size: </b>{download.size()}"
-                elif download.status() == MirrorStatus.STATUS_SPLITTING:
-                    msg += f"\n<b>├ Splitted:</b> {get_readable_file_size(download.processed_bytes())}\n<b>├ Total Size: </b>{download.size()}"
-                msg += f"\n<b>├ Speed:</b> {download.speed()}\n<b>├ ETA:</b> {download.eta()}"
+            if download.status() not in [MirrorStatus.STATUS_SEEDING, MirrorStatus.STATUS_SPLITTING]:
+                msg += f"\n<b>├</b>{get_progress_bar_string(download)} {download.progress()}"
+                msg += f"\n<b>├ Processed:</b> {get_readable_file_size(download.processed_bytes())}\n<b>├ Total Size:</b> {download.size()}"
+                msg += f"\n<b>├ Speed:</b> {download.speed()}"
+                msg += f"\n<b>├ ETA:</b> {download.eta()}"
                 msg += f"\n<b>├ Elapsed: </b>{get_readable_time(time() - download.message.date.timestamp())}"
-                msg += f'\n<b>├ Req By:</b> <a href="https://t.me/c/{str(download.message.chat.id)[4:]}/{download.message.message_id}">{download.message.from_user.first_name}</a>'
-                msg += f"\n<b>├ Engine:</b> {download.eng()}"
-                try:
-                    msg += f"\n<b>├ Seeders:</b> {download.aria_download().num_seeders}" \
-                           f"\n<b>├ Peers:</b> {download.aria_download().connections}"
-#                     msg += f'\n<b>├ TEngine: </b><a href="https://aria2.github.io">Aria2</a>'
-                except:
-                    pass
-                try:
-                    msg += f"\n<b>├ Seeders:</b> {download.torrent_info().num_seeds}" \
-                           f"\n<b>├ Leechers:</b> {download.torrent_info().num_leechs}"
-#                     msg += f'\n<b>├ TEngine: </b><a href="https://www.qbittorrent.org">qBittorrent</a>'
-                    msg += f"\n<b>├ Sel:</b> <code>/{BotCommands.QbSelectCommand} {download.gid()}</code>"
-                except:
-                    pass
+                msg += f"\n<b>├ Engine :</b> {download.eng()}"
+
+                if hasattr(download, 'seeders_num'):
+                    try:
+                        msg += f"\n<b>├ Seeders:</b> {download.seeders_num()}\n<b>├ Leechers:</b> {download.leechers_num()}"
+                        msg += f"\n<b>├ Sel:</b> <code>/{BotCommands.BtSelectCommand} {download.gid()}</code>"
+                    except:
+                        pass
+                if download.message.chat.type != 'private':
+                    try:
+                        chatid = str(download.message.chat.id)[4:]
+                        msg += f'\n<b>├ Added by: </b><a href="https://t.me/c/{chatid}/{download.message.message_id}">{download.message.from_user.first_name}</a>'
+                        msg += f"\n<b>└ Stop: </b><code>/{BotCommands.CancelMirror} {download.gid()}</code>"                 
+                    except:
+                        pass
+                else:
+                    msg += f'\n<b>├ Added by:</b> ️{download.message.from_user.first_name}'
+                    msg += f"\n<b>└ Stop: </b><code>/{BotCommands.CancelMirror} {download.gid()}</code>"
 
             elif download.status() == MirrorStatus.STATUS_SEEDING:
                 msg += f"\n<b>├ Size: </b>{download.size()}"
                 msg += f"\n<b>├ Engine:</b> qBittorrent v4.4.2"
-                msg += f"\n<b>├ Speed: </b>{get_readable_file_size(download.torrent_info().upspeed)}/s"
-                msg += f"\n<b>├ Uploaded: </b>{get_readable_file_size(download.torrent_info().uploaded)}"
-                msg += f"\n<b>├ Ratio: </b>{round(download.torrent_info().ratio, 3)}"
-                msg += f"\n<b>├ Time: </b>{get_readable_time(download.torrent_info().seeding_time)}"
+                msg += f"\n<b>├ Speed: </b>{download.upload_speed()}"
+                msg += f"\n<b>├ Uploaded: </b>{download.uploaded_bytes()}"
+                msg += f"\n<b>├ Ratio: </b>{download.ratio()}"
+                msg += f"\n<b>├ Time: </b>{download.seeding_time()}"
                 msg += f"\n<b>├ Elapsed: </b>{get_readable_time(time() - download.message.date.timestamp())}"
-#                 msg += f'\n<b>├ TEngine: </b><a href="https://www.qbittorrent.org">qBittorrent</a>'
-                msg += f'\n<b>├ Added by:</b> <a href="https://t.me/c/{str(download.message.chat.id)[4:]}/{download.message.message_id}">{download.message.from_user.first_name}</a>'
+                msg += f"\n<b>└ Stop: </b><code>/{BotCommands.CancelMirror} {download.gid()}</code>"
             else:
-                msg += f"\n<b>├ Size: </b>{download.size()}"
                 msg += f"\n<b>├ Engine :</b> {download.eng()}"
-            msg += f"\n<b>└ Stop:</b> <code>/{BotCommands.CancelMirror} {download.gid()}</code>"
+                msg += f"\n<b>└ Size: </b>{download.size()}"
             msg += "\n"
             if STATUS_LIMIT is not None and index == STATUS_LIMIT:
                 break
         if len(msg) == 0:
             return None, None
-        bmsg = f"\n▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n<b>CPU:</b> {cpu_percent()}% | <b>FREE:</b> {get_readable_file_size(disk_usage(DOWNLOAD_DIR).free)}"
-        bmsg += f"\n<b>RAM:</b> {virtual_memory().percent}% | <b>UPTM:</b> {get_readable_time(time() - botStartTime)}"
-        dlspeed_bytes = 0
-        upspeed_bytes = 0
+        dl_speed = 0
+        up_speed = 0
         for download in list(download_dict.values()):
             spd = download.speed()
             if download.status() == MirrorStatus.STATUS_DOWNLOADING:
+                spd = download.speed()
                 if 'K' in spd:
-                    dlspeed_bytes += float(spd.split('K')[0]) * 1024
+                    dl_speed += float(spd.split('K')[0]) * 1024
                 elif 'M' in spd:
-                    dlspeed_bytes += float(spd.split('M')[0]) * 1048576
+                    dl_speed += float(spd.split('M')[0]) * 1048576
             elif download.status() == MirrorStatus.STATUS_UPLOADING:
+                spd = download.speed()
                 if 'KB/s' in spd:
-                    upspeed_bytes += float(spd.split('K')[0]) * 1024
+                    up_speed += float(spd.split('K')[0]) * 1024
                 elif 'MB/s' in spd:
-                    upspeed_bytes += float(spd.split('M')[0]) * 1048576
-        bmsg += f"\n<b>DL:</b> {get_readable_file_size(dlspeed_bytes)}/s | <b>UL:</b> {get_readable_file_size(upspeed_bytes)}/s"
+                    up_speed += float(spd.split('M')[0]) * 1048576
+            elif download.status() == MirrorStatus.STATUS_SEEDING:
+                spd = download.upload_speed()
+                if 'K' in spd:
+                    up_speed += float(spd.split('K')[0]) * 1024
+                elif 'M' in spd:
+                    up_speed += float(spd.split('M')[0]) * 1048576
+        bmsg = f"\n▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n<b>CPU:</b> {cpu_percent()}% | <b>FREE:</b> {get_readable_file_size(disk_usage(DOWNLOAD_DIR).free)}"
+        bmsg += f"\n<b>RAM:</b> {virtual_memory().percent}% | <b>UPTM:</b> {get_readable_time(time() - botStartTime)}"
+        bmsg += f"\n<b>DL:</b> {get_readable_file_size(dl_speed)}/s | <b>UL:</b> {get_readable_file_size(up_speed)}/s"
         
         buttons = ButtonMaker()
-        buttons.sbutton("Refresh", str(ONE))
-        buttons.sbutton("StatS", str(THREE))
-        buttons.sbutton("Close", str(TWO))
+        buttons.sbutton("Refresh", "status refresh")
+        buttons.sbutton("Stats", str(THREE))
+        buttons.sbutton("Close", "status close")
         sbutton = InlineKeyboardMarkup(buttons.build_menu(3))
-
+        
         if STATUS_LIMIT is not None and tasks > STATUS_LIMIT:
             msg += f"\n<b>Total Tasks:</b> {tasks}"
             buttons = ButtonMaker()
             buttons.sbutton("Prev", "status pre")
             buttons.sbutton(f"{PAGE_NO}/{pages}", str(THREE))
             buttons.sbutton("Next", "status nex")
-            buttons.sbutton("Refresh", str(ONE))
-            buttons.sbutton("Close", str(TWO))
+            buttons.sbutton("Refresh", "status refresh")
+            buttons.sbutton("Close", "status close")
             button = InlineKeyboardMarkup(buttons.build_menu(3))
-
             return msg + bmsg, button
         return msg + bmsg, sbutton
 
@@ -347,9 +310,19 @@ def is_gdtot_link(url: str):
     url = re_match(r'https?://.+\.gdtot\.\S+', url)
     return bool(url)
 
-def is_appdrive_link(url: str):
-    url = re_match(r'https?://(?:\S*\.)?(?:appdrive|driveapp)\.in/\S+', url)
-    return bool(url)
+def is_unified_link(url: str):
+    url = re_match(r'https?://(appdrive|driveapp|driveace|gdflix|drivebit|drivesharer|drivepro)\.\S+', url)
+    if bool(url) == True:
+        return bool(url)
+    else:
+        return False
+
+def is_udrive_link(url: str):
+    if 'drivehub.ws' in url:
+        return 'drivehub.ws' in url
+    else:
+        url = re_match(r'https?://(hubdrive|katdrive|kolop|drivefire|drivebuzz)\.\S+', url)
+        return bool(url)
 
 def is_mega_link(url: str):
     return "mega.nz" in url or "mega.co.nz" in url
@@ -392,39 +365,18 @@ def get_content_type(link: str) -> str:
             content_type = None
     return content_type
 
+
 ONE, TWO, THREE = range(3)
-
-def refresh(update, context):
-    query = update.callback_query
-    query.edit_message_text(text="Refreshing Status...🔄")
-    sleep(5)
-    update_all_messages()
-
-def close(update, context):
-    chat_id = update.effective_chat.id
-    user_id = update.callback_query.from_user.id
-    bot = context.bot
-    query = update.callback_query
-    admins = bot.get_chat_member(chat_id, user_id).status in [
-        "creator",
-        "administrator",
-    ] or user_id in [OWNER_ID]
-    if admins:
-        delete_all_messages()
-    else:
-        query.answer(text="Sorry, only Admins can close !", show_alert=True)
-
 def pop_up_stats(update, context):
     query = update.callback_query
     stats = bot_sys_stats()
     query.answer(text=stats, show_alert=True)
-
 def bot_sys_stats():
     currentTime = get_readable_time(time() - botStartTime)
     cpu = psutil.cpu_percent()
     mem = psutil.virtual_memory().percent
-    disk = psutil.disk_usage("/").percent
-    total, used, free = shutil.disk_usage(".")
+    disk = psutil.disk_usage(DOWNLOAD_DIR).percent
+    total, used, free = shutil.disk_usage(DOWNLOAD_DIR)
     total = get_readable_file_size(total)
     used = get_readable_file_size(used)
     free = get_readable_file_size(free)
@@ -432,6 +384,7 @@ def bot_sys_stats():
     sent = get_readable_file_size(psutil.net_io_counters().bytes_sent)
     num_active = 0
     num_upload = 0
+    num_seed = 0
     num_split = 0
     num_extract = 0
     num_archi = 0
@@ -441,6 +394,8 @@ def bot_sys_stats():
                 num_active += 1
        if stats.status() == MirrorStatus.STATUS_UPLOADING:
                 num_upload += 1
+       if stats.status() == MirrorStatus.STATUS_SEEDING:
+                num_seed += 1
        if stats.status() == MirrorStatus.STATUS_ARCHIVING:
                 num_archi += 1
        if stats.status() == MirrorStatus.STATUS_EXTRACTING:
@@ -450,17 +405,18 @@ def bot_sys_stats():
     stats = f"""
 BOT UPTIME : {currentTime}
 
-CPU : {cpu}% || RAM : {mem}%
+CPU : {progress_bar(cpu)} {cpu}%
+RAM : {progress_bar(mem)} {mem}%
 
-USED : {used} || FREE : {free}
-T-DL : {recv} || T-UP : {sent}
+USED : {used} | FREE : {free}
+SENT : {sent} | RECV : {recv}
 
-ONGOING TASKS : {tasks}
-DL : {num_active} || UP : {num_upload}
-ZIP : {num_archi} || UNZIP : {num_extract} || SPLIT : {num_split}
+ACTIVE TASKS : {tasks}
+DL : {num_active} | UP : {num_upload} | SEED : {num_seed}
+ZIP : {num_archi} | UNZIP : {num_extract} | SPLIT : {num_split}
 """
-    return stats
 
-dispatcher.add_handler(CallbackQueryHandler(refresh, pattern="^" + str(ONE) + "$"))
-dispatcher.add_handler(CallbackQueryHandler(close, pattern="^" + str(TWO) + "$"))
-dispatcher.add_handler(CallbackQueryHandler(pop_up_stats, pattern="^" + str(THREE) + "$"))
+    return stats
+dispatcher.add_handler(
+    CallbackQueryHandler(pop_up_stats, pattern="^" + str(THREE) + "$")
+)

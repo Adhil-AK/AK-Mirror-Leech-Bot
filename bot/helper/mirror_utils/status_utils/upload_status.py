@@ -1,15 +1,16 @@
 from bot.helper.ext_utils.bot_utils import MirrorStatus, get_readable_file_size, get_readable_time, EngineStatus
 
+
 class UploadStatus:
     def __init__(self, obj, size, gid, listener):
         self.__obj = obj
         self.__size = size
-        self.__uid = listener.uid
         self.__gid = gid
         self.message = listener.message
 
+
     def processed_bytes(self):
-        return self.__obj.uploaded_bytes
+        return self.__obj.processed_bytes
 
     def size_raw(self):
         return self.__size
@@ -25,7 +26,7 @@ class UploadStatus:
 
     def progress_raw(self):
         try:
-            return self.__obj.uploaded_bytes / self.__size * 100
+            return self.__obj.processed_bytes / self.__size * 100
         except ZeroDivisionError:
             return 0
 
@@ -43,7 +44,7 @@ class UploadStatus:
 
     def eta(self):
         try:
-            seconds = (self.__size - self.__obj.uploaded_bytes) / self.speed_raw()
+            seconds = (self.__size - self.__obj.processed_bytes) / self.speed_raw()
             return f'{get_readable_time(seconds)}'
         except ZeroDivisionError:
             return '-'

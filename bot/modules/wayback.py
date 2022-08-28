@@ -1,8 +1,46 @@
-from bot.helper.ext_utils.bot_utils import get_readable_time
-from subprocess import run
-from requests import Session
-from bot import LOGGER
-from random import randint
+from telegram import Message
+import waybackpy, re, random
+from telegram.ext import CommandHandler
+from bot import LOGGER, dispatcher, WAYBACK_ENABLED
+from bot.helper.ext_utils.shortenurl import short_url
+from bot.helper.telegram_helper.filters import CustomFilters
+from bot.helper.telegram_helper.bot_commands import BotCommands
+from bot.helper.telegram_helper.message_utils import editMessage, sendMessage
+
+
+def wayback(update, context):
+    message:Message = update.effective_message
+    link = None
+    if message.reply_to_message: link = message.reply_to_message.text
+    else:
+        link = message.text.split(' ', 1)
+        if len(link) != 2:
+            help_msg = "<b>Send link after command:</b>"
+            help_msg += f"\n<code>/{BotCommands.WayBackCommand}" + " {link}" + "</code>"
+            help_msg += "\n<b>By replying to message (including link):</b>"
+            help_msg += f"\n<code>/{BotCommands.WayBackCommand}" + " {message}" + "</code>"
+            return sendMessage(help_msg, context.bot, update.message)
+        link = link[1]
+    try: link = re.match(r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*", link)[0]
+    except TypeError: return sendMessage('Not a valid link for wayback.', context.bot, update)
+    sent = sendMessage('Running WayBack. Wait about 20 secs.', context.bot, update.message)
+    retLink = saveWebPage(link)
+    if not retLink: return editMessage('Cannot archieved. Try again later.', sent)
+    editMessage(f'Saved webpage: {short_url(retLink)}', sent)
+
+
+def saveWebPage(pageurl:str):
+    LOGGER.info("wayback running for: " + pageurl)
+    user_agent = getRandomUserAgent()
+    try:
+        wayback = waybackpy.Url(pageurl, user_agent)
+        archive = wayback.save()
+        LOGGER.info("wayback success for: " + pageurl)
+        return archive.archive_url
+    except Exception as r:
+        LOGGER.error("wayback unsuccess for: " + pageurl + " , " + str(r))
+        return None
+
 
 def getRandomUserAgent():
     agents = [
@@ -32,41 +70,12 @@ def getRandomUserAgent():
     "Opera/9.80 (X11; U; Linux i686; en-US; rv:1.9.2.3) Presto/2.2.15 Version/10.10",
     "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.117 Mobile Safari/537.36"
     ]
-    return agents[randint(0, len(agents)-1)]
+    return agents[random.randint(0, len(agents)-1)]
 
-def getHerokuDetails(h_api_key, h_app_name):
-    try: import heroku3
-    except ModuleNotFoundError: run("pip install heroku3", capture_output=False, shell=True)
-    try: import heroku3
-    except Exception as f:
-        LOGGER.warning("heroku3 cannot imported. add to your deployer requirements.txt file.")
-        LOGGER.warning(f)
-        return None
-    if (not h_api_key) or (not h_app_name): return None
-    try:
-        heroku_api = "https://api.heroku.com"
-        Heroku = heroku3.from_key(h_api_key)
-        app = Heroku.app(h_app_name)
-        useragent = getRandomUserAgent()
-        user_id = Heroku.account().id
-        headers = {
-            "User-Agent": useragent,
-            "Authorization": f"Bearer {h_api_key}",
-            "Accept": "application/vnd.heroku+json; version=3.account-quotas",
-        }
-        path = f"/accounts/{user_id}/actions/get-quota"
-        session = Session()
-        result = (session.get(heroku_api + path, headers=headers)).json()
-        stats = "<b>├─《 Heroku Dyno Stats 》</b>\n"
-        account_quota = result["account_quota"]
-        quota_used = result["quota_used"]
-        quota_remain = account_quota - quota_used
-        stats += f"<b>│</b>\n"
-        stats += f"<b>├ Total Dyno Hours:</b> {get_readable_time(account_quota)}\n"
-        stats += f"<b>├ Used:</b> {get_readable_time(quota_used)}\n"
-        stats += f"<b>├ Available:</b> {get_readable_time(quota_remain)}\n"
-        stats += f"<b>│</b>\n"
-        return stats
-    except Exception as error:
-        LOGGER.error(error)
-        return None 
+if WAYBACK_ENABLED:
+    wayback_handler = CommandHandler(BotCommands.WayBackCommand, wayback,
+                                    filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+else:
+    wayback_handler = CommandHandler(BotCommands.WayBackCommand, wayback,
+                                    filters=CustomFilters.owner_filter | CustomFilters.authorized_user, run_async=True)
+dispatcher.add_handler(wayback_handler)

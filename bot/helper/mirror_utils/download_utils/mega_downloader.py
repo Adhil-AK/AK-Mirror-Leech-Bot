@@ -1,8 +1,8 @@
 from threading import Lock
 from pathlib import Path
 
-from bot import LOGGER, download_dict, download_dict_lock, MEGA_LIMIT, STOP_DUPLICATE, ZIP_UNZIP_LIMIT, LEECH_LIMIT, STORAGE_THRESHOLD
-from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, sendStatusMessage
+from bot import LOGGER, TELEGRAPH_STYLE, download_dict, download_dict_lock, MEGA_LIMIT, STOP_DUPLICATE, ZIP_UNZIP_LIMIT, STORAGE_THRESHOLD, LEECH_LIMIT
+from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, sendStatusMessage, sendStatusMessage, sendFile
 from bot.helper.ext_utils.bot_utils import get_readable_file_size, setInterval
 from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.ext_utils.fs_utils import get_base_name, check_storage_threshold
@@ -67,15 +67,8 @@ class MegaDownloader:
 
     def __onInterval(self):
         dlInfo = self.__mega_client.getDownloadInfo(self.gid)
-        if (
-            dlInfo['state']
-            in [
-                constants.State.TYPE_STATE_COMPLETED,
-                constants.State.TYPE_STATE_CANCELED,
-                constants.State.TYPE_STATE_FAILED,
-            ]
-            and self.__periodic is not None
-        ):
+        if dlInfo['state'] in [constants.State.TYPE_STATE_COMPLETED, constants.State.TYPE_STATE_CANCELED, 
+            constants.State.TYPE_STATE_FAILED] and self.__periodic is not None:
             self.__periodic.cancel()
         if dlInfo['state'] == constants.State.TYPE_STATE_COMPLETED:
             self.__onDownloadComplete()
@@ -124,12 +117,19 @@ class MegaDownloader:
                 except:
                     mname = None
             if mname is not None:
-                smsg, button = GoogleDriveHelper().drive_list(mname, True)
-                if smsg:
-                    msg1 = "File/Folder have been already mirrored by Someone !\nHere you go:"
-                    return sendMarkup(msg1, self.__listener.bot, self.__listener.message, button)
-        if any([STORAGE_THRESHOLD, ZIP_UNZIP_LIMIT, LEECH_LIMIT, MEGA_LIMIT]):
-            arch = any([self.__listener.isZip, self.__listener.extract, self.__listener.isLeech])
+                if TELEGRAPH_STYLE is True:
+                    smsg, button = GoogleDriveHelper().drive_list(mname, True)
+                    if smsg:
+                        msg1 = "File/Folder is already available in Drive.\nHere are the search results:"
+                        return sendMarkup(msg1, self.__listener.bot, self.__listener.message, button)
+                else:
+                    cap, f_name = GoogleDriveHelper().drive_list(mname, True)
+                    if cap:
+                        cap = f"File/Folder is already available in Drive. Here are the search results:\n\n{cap}"
+                        sendFile(self.__listener.bot, self.__listener.message, f_name, cap)
+                        return
+        if any([STORAGE_THRESHOLD, ZIP_UNZIP_LIMIT, MEGA_LIMIT, LEECH_LIMIT]):
+            arch = any([self.__listener.isZip, self.__listener.extract])
             if STORAGE_THRESHOLD is not None:
                 acpt = check_storage_threshold(file_size, arch)
                 if not acpt:
