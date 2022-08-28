@@ -210,7 +210,6 @@ def start(update, context):
     buttons = ButtonMaker()
     buttons.buildbutton(f"{START_BTN1_NAME}", f"{START_BTN1_URL}")
     buttons.buildbutton(f"{START_BTN2_NAME}", f"{START_BTN2_URL}")
-    buttons.buildbutton("Repo", "https://github.com/Adhil-AK/AK-Mirror-Leech-Bot")
     reply_markup = InlineKeyboardMarkup(buttons.build_menu(2))
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
         start_string = f'''
