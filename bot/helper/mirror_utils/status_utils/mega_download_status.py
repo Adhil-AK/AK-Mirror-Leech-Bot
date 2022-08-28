@@ -9,6 +9,7 @@ class MegaDownloadStatus:
 
     def gid(self):
         return self.__obj.gid
+
     def processed_bytes(self):
         return self.__obj.downloaded_bytes
 

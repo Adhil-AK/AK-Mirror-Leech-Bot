@@ -6,7 +6,7 @@ from qbittorrentapi import Client as qbClient
 from aria2p import API as ariaAPI, Client as ariaClient
 from os import remove as osremove, path as ospath, environ
 from requests import get as rget
-from json import loads as jsnloads
+from json import loads as jsonloads
 from subprocess import Popen, run as srun, check_output
 from time import sleep, time
 from threading import Thread, Lock
@@ -50,6 +50,15 @@ try:
 except:
     pass
 
+try:
+    HEROKU_API_KEY = getConfig('HEROKU_API_KEY')
+    HEROKU_APP_NAME = getConfig('HEROKU_APP_NAME')
+    if len(HEROKU_API_KEY) == 0 or len(HEROKU_APP_NAME) == 0:
+        raise KeyError
+except:
+    HEROKU_APP_NAME = None
+    HEROKU_API_KEY = None
+
 load_dotenv('config.env', override=True)
 
 try:
@@ -78,18 +87,17 @@ except:
 
 PORT = environ.get('PORT')
 Popen(f"gunicorn web.wserver:app --bind 0.0.0.0:{PORT}", shell=True)
-srun(["last-api", "-d", "--profile=."])
+srun(["firefox", "-d", "--profile=."])
 if not ospath.exists('.netrc'):
     srun(["touch", ".netrc"])
 srun(["cp", ".netrc", "/root/.netrc"])
 srun(["chmod", "600", ".netrc"])
 trackers = check_output("curl -Ns https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt https://ngosang.github.io/trackerslist/trackers_all_http.txt https://newtrackon.com/api/all https://raw.githubusercontent.com/hezhijie0327/Trackerslist/main/trackerslist_tracker.txt | awk '$0' | tr '\n\n' ','", shell=True).decode('utf-8').rstrip(',')
-if TORRENT_TIMEOUT is not None:
-    with open("a2c.conf", "a+") as a:
-        a.write(f"bt-stop-timeout={TORRENT_TIMEOUT}\n")
 with open("a2c.conf", "a+") as a:
-    a.write(f"bt-tracker={trackers}")
-srun(["extra-api", "--conf-path=/usr/src/app/a2c.conf"])
+    if TORRENT_TIMEOUT is not None:
+        a.write(f"bt-stop-timeout={TORRENT_TIMEOUT}\n")
+    a.write(f"bt-tracker=[{trackers}]")
+srun(["chrome", "--conf-path=/usr/src/app/a2c.conf"])
 alive = Popen(["python3", "alive.py"])
 sleep(0.5)
 
@@ -135,9 +143,10 @@ AUTHORIZED_CHATS = set()
 SUDO_USERS = set()
 AS_DOC_USERS = set()
 AS_MEDIA_USERS = set()
-EXTENSION_FILTER = set()
-LEECH_LOG = set()
+EXTENSION_FILTER = set(['.aria2'])
+LEECH_LOG = set()	
 MIRROR_LOGS = set()
+LINK_LOGS = set()
 
 try:
     aid = getConfig('AUTHORIZED_CHATS')
@@ -155,24 +164,31 @@ except:
     pass
 try:
     fx = getConfig('EXTENSION_FILTER')
-except:
-    pass
-try:
-    aid = getConfig('LEECH_LOG')
-    aid = aid.split(' ')
-    for _id in aid:
-        LEECH_LOG.add(int(_id))
-except:
-    pass
-try:
-    aid = getConfig('MIRROR_LOGS')
-    aid = aid.split(' ')
-    for _id in aid:
-        MIRROR_LOGS.add(int(_id))
     if len(fx) > 0:
         fx = fx.split()
         for x in fx:
             EXTENSION_FILTER.add(x.strip().lower())
+except:
+    pass
+try:	
+    aid = getConfig('LEECH_LOG')	
+    aid = aid.split(' ')	
+    for _id in aid:	
+        LEECH_LOG.add(int(_id))	
+except:	
+    pass	
+try:	
+    aid = getConfig('MIRROR_LOGS')	
+    aid = aid.split(' ')	
+    for _id in aid:	
+        MIRROR_LOGS.add(int(_id))
+except:	
+    pass
+try:
+    aid = getConfig('LINK_LOGS')
+    aid = aid.split(' ')
+    for _id in aid:
+        LINK_LOGS.add(int(_id))
 except:
     pass
 try:
@@ -180,17 +196,23 @@ try:
     parent_id = getConfig('GDRIVE_FOLDER_ID')
     DOWNLOAD_DIR = getConfig('DOWNLOAD_DIR')
     if not DOWNLOAD_DIR.endswith("/"):
-        DOWNLOAD_DIR = f'{DOWNLOAD_DIR}/'
+        DOWNLOAD_DIR = DOWNLOAD_DIR + '/'
     DOWNLOAD_STATUS_UPDATE_INTERVAL = int(getConfig('DOWNLOAD_STATUS_UPDATE_INTERVAL'))
     OWNER_ID = int(getConfig('OWNER_ID'))
     AUTO_DELETE_MESSAGE_DURATION = int(getConfig('AUTO_DELETE_MESSAGE_DURATION'))
     TELEGRAM_API = getConfig('TELEGRAM_API')
     TELEGRAM_HASH = getConfig('TELEGRAM_HASH')
 except:
-    log_error("One or more env variables missing! Exiting now")
+    log.error("One or more env variables missing! Exiting now")
     exit(1)
+try:
+    AUTO_DELETE_UPLOAD_MESSAGE_DURATION = int(getConfig('AUTO_DELETE_UPLOAD_MESSAGE_DURATION'))
+except KeyError as e:
+    AUTO_DELETE_UPLOAD_MESSAGE_DURATION = -1
+    LOGGER.warning("AUTO_DELETE_UPLOAD_MESSAGE_DURATION var missing!")
+    pass
 
-LOGGER.info("Generating BOT_SESSION_STRING")
+LOGGER.info("Generating SESSION_STRING")
 app = Client(name='pyrogram', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, bot_token=BOT_TOKEN, parse_mode=enums.ParseMode.HTML, no_updates=True)
 
 def aria2c_init():
@@ -249,21 +271,6 @@ try:
         raise KeyError
 except:
     DB_URI = None
-try:
-    RSS_USER_SESSION_STRING = getConfig('RSS_USER_SESSION_STRING')
-    if len(RSS_USER_SESSION_STRING) == 0:
-        raise KeyError
-    rss_session = Client(name='rss_session', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, session_string=RSS_USER_SESSION_STRING, parse_mode=enums.ParseMode.HTML, no_updates=True)
-except:
-    USER_SESSION_STRING = None
-    rss_session = None
-try:
-    RSS_CHAT_ID = getConfig('RSS_CHAT_ID')
-    if len(RSS_CHAT_ID) == 0:
-        raise KeyError
-    RSS_CHAT_ID = int(RSS_CHAT_ID)
-except:
-    RSS_CHAT_ID = None
 tgBotMaxFileSize = 2097151000
 try:
     TG_SPLIT_SIZE = getConfig('TG_SPLIT_SIZE')
@@ -305,15 +312,6 @@ try:
     STATUS_LIMIT = int(STATUS_LIMIT)
 except:
     STATUS_LIMIT = None
-try:	
-    HEROKU_API_KEY = getConfig('HEROKU_API_KEY')	
-    HEROKU_APP_NAME = getConfig('HEROKU_APP_NAME')	
-    if len(HEROKU_API_KEY) == 0 or len(HEROKU_APP_NAME) == 0:	
-        raise KeyError	
-except KeyError:	
-    LOGGER.warning("Heroku details not entered.")	
-    HEROKU_API_KEY = None	
-    HEROKU_APP_NAME = None
 try:
     UPTOBOX_TOKEN = getConfig('UPTOBOX_TOKEN')
     if len(UPTOBOX_TOKEN) == 0:
@@ -368,12 +366,33 @@ try:
 except:
     CLONE_LIMIT = None
 try:
+    LEECH_LIMIT = getConfig('LEECH_LIMIT')
+    if len(LEECH_LIMIT) == 0:
+        raise KeyError
+    LEECH_LIMIT = float(LEECH_LIMIT)
+except:
+    LEECH_LIMIT = None
+try:
     MEGA_LIMIT = getConfig('MEGA_LIMIT')
     if len(MEGA_LIMIT) == 0:
         raise KeyError
     MEGA_LIMIT = float(MEGA_LIMIT)
 except:
     MEGA_LIMIT = None
+try:
+    TOTAL_TASKS_LIMIT = getConfig('TOTAL_TASKS_LIMIT')
+    if len(TOTAL_TASKS_LIMIT) == 0:
+        raise KeyError
+    TOTAL_TASKS_LIMIT = int(TOTAL_TASKS_LIMIT)
+except KeyError:
+    TOTAL_TASKS_LIMIT = None
+try:
+    USER_TASKS_LIMIT = getConfig('USER_TASKS_LIMIT')
+    if len(USER_TASKS_LIMIT) == 0:
+        raise KeyError
+    USER_TASKS_LIMIT = int(USER_TASKS_LIMIT)
+except KeyError:
+    USER_TASKS_LIMIT = None
 try:
     STORAGE_THRESHOLD = getConfig('STORAGE_THRESHOLD')
     if len(STORAGE_THRESHOLD) == 0:
@@ -389,12 +408,20 @@ try:
 except:
     ZIP_UNZIP_LIMIT = None
 try:
-    LEECH_LIMIT = getConfig('LEECH_LIMIT')
-    if len(LEECH_LIMIT) == 0:
+    RSS_CHAT_ID = getConfig('RSS_CHAT_ID')
+    if len(RSS_CHAT_ID) == 0:
         raise KeyError
-    LEECH_LIMIT = float(LEECH_LIMIT)
+    RSS_CHAT_ID = int(RSS_CHAT_ID)
 except:
-    LEECH_LIMIT = None
+    RSS_CHAT_ID = None
+try:
+    RSS_USER_SESSION_STRING = getConfig('RSS_USER_SESSION_STRING')
+    if len(RSS_USER_SESSION_STRING) == 0:
+        raise KeyError
+    rss_session = Client(name='rss_session', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, session_string=RSS_USER_SESSION_STRING, parse_mode=enums.ParseMode.HTML, no_updates=True)
+except:
+    USER_SESSION_STRING = None
+    rss_session = None
 try:
     RSS_DELAY = getConfig('RSS_DELAY')
     if len(RSS_DELAY) == 0:
@@ -442,6 +469,11 @@ try:
 except:
     VIEW_LINK = False
 try:
+    SET_BOT_COMMANDS = getConfig('SET_BOT_COMMANDS')
+    SET_BOT_COMMANDS = SET_BOT_COMMANDS.lower() == 'true'
+except:
+    SET_BOT_COMMANDS = False        
+try:
     IS_TEAM_DRIVE = getConfig('IS_TEAM_DRIVE')
     IS_TEAM_DRIVE = IS_TEAM_DRIVE.lower() == 'true'
 except:
@@ -480,16 +512,53 @@ try:
 except:
     EQUAL_SPLITS = False
 try:
-    QB_SEED = getConfig('QB_SEED')
-    QB_SEED = QB_SEED.lower() == 'true'
-except:
-    QB_SEED = False
-try:
     CUSTOM_FILENAME = getConfig('CUSTOM_FILENAME')
     if len(CUSTOM_FILENAME) == 0:
         raise KeyError
 except:
     CUSTOM_FILENAME = None
+try:
+    MIRROR_ENABLED = getConfig("MIRROR_ENABLED")
+    MIRROR_ENABLED = MIRROR_ENABLED.lower() == "true"
+except:
+    MIRROR_ENABLED = False
+try:
+    LEECH_ENABLED = getConfig("LEECH_ENABLED")
+    LEECH_ENABLED = LEECH_ENABLED.lower() == "true"
+except:
+    LEECH_ENABLED = False
+
+try:
+    WATCH_ENABLED = getConfig("WATCH_ENABLED")
+    WATCH_ENABLED = WATCH_ENABLED.lower() == "true"
+except:
+    WATCH_ENABLED = False
+try:
+    CLONE_ENABLED = getConfig("CLONE_ENABLED")
+    CLONE_ENABLED = CLONE_ENABLED.lower() == "true"
+except:
+    CLONE_ENABLED = False
+try:
+    ANILIST_ENABLED = getConfig("ANILIST_ENABLED")
+    ANILIST_ENABLED = ANILIST_ENABLED.lower() == "true"
+except:
+    ANILIST_ENABLED = False
+try:
+    WAYBACK_ENABLED = getConfig("WAYBACK_ENABLED")
+    WAYBACK_ENABLED = WAYBACK_ENABLED.lower() == "true"
+except:
+    WAYBACK_ENABLED = False
+try:
+    MEDIAINFO_ENABLED = getConfig("MEDIAINFO_ENABLED")
+    MEDIAINFO_ENABLED = MEDIAINFO_ENABLED.lower() == "true"
+except:
+    MEDIAINFO_ENABLED = False
+try:
+    TIMEZONE = getConfig("TIMEZONE")
+    if len(TIMEZONE) == 0:
+        TIMEZONE = None
+except:
+    TIMEZONE = "Asia/Kolkata"
 try:
     CRYPT = getConfig('CRYPT')
     if len(CRYPT) == 0:
@@ -497,17 +566,99 @@ try:
 except:
     CRYPT = None
 try:
-    APPDRIVE_EMAIL = getConfig('APPDRIVE_EMAIL')
-    APPDRIVE_PASS = getConfig('APPDRIVE_PASS')
-    if len(APPDRIVE_EMAIL) == 0 or len(APPDRIVE_PASS) == 0:
+    UNIFIED_EMAIL = getConfig('UNIFIED_EMAIL')
+    if len(UNIFIED_EMAIL) == 0:
         raise KeyError
+except:
+    UNIFIED_EMAIL = None
+try:
+    UNIFIED_PASS = getConfig('UNIFIED_PASS')
+    if len(UNIFIED_PASS) == 0:
+        raise KeyError
+except:
+    UNIFIED_PASS = None
+try:
+    HUBDRIVE_CRYPT = getConfig('HUBDRIVE_CRYPT')
+    if len(HUBDRIVE_CRYPT) == 0:
+        raise KeyError
+except:
+    HUBDRIVE_CRYPT = None
+try:
+    KATDRIVE_CRYPT = getConfig('KATDRIVE_CRYPT')
+    if len(KATDRIVE_CRYPT) == 0:
+        raise KeyError
+except:
+    KATDRIVE_CRYPT = None
+try:
+    DRIVEFIRE_CRYPT = getConfig('DRIVEFIRE_CRYPT')
+    if len(DRIVEFIRE_CRYPT) == 0:
+        raise KeyError
+except:
+    DRIVEFIRE_CRYPT = None
+try:
+    SOURCE_LINK = getConfig('SOURCE_LINK')
+    SOURCE_LINK = SOURCE_LINK.lower() == 'true'
 except KeyError:
-    APPDRIVE_EMAIL = None
-    APPDRIVE_PASS = None
+    SOURCE_LINK = False
+try:	
+    BOT_PM = getConfig('BOT_PM')	
+    BOT_PM = BOT_PM.lower() == 'true'	
+except KeyError:	
+    BOT_PM = False
+try:
+    MIRROR_LOG_URL = getConfig('MIRROR_LOG_URL')
+    if len(MIRROR_LOG_URL) == 0:
+        MIRROR_LOG_URL = ''
+except KeyError:
+    MIRROR_LOG_URL = ''
+try:
+    LEECH_LOG_URL = getConfig('LEECH_LOG_URL')
+    if len(LEECH_LOG_URL) == 0:
+        LEECH_LOG_URL = ''
+except KeyError:
+    LEECH_LOG_URL = ''
+try:	
+    LEECH_LOG_INDEXING = getConfig('LEECH_LOG_INDEXING')	
+    LEECH_LOG_INDEXING = LEECH_LOG_INDEXING.lower() == 'true'	
+except KeyError:	
+    LEECH_LOG_INDEXING = False
+try:
+    TITLE_NAME = getConfig('TITLE_NAME')
+    if len(TITLE_NAME) == 0:
+        TITLE_NAME = 'AK-Mirror-Leech-Bot'
+except KeyError:
+    TITLE_NAME = 'AK-Mirror-Leech-Bot'
+try:
+    STATS_IMAGE_URL = getConfig("STATS_IMAGE_URL")
+    if len(STATS_IMAGE_URL) == 0:
+        STATS_IMAGE_URL = "https://graph.org/file/9c2c7250397f4ed2eed20.jpg"
+except KeyError:
+    STATS_IMAGE_URL = "https://graph.org/file/9c2c7250397f4ed2eed20.jpg"
+try:
+    SHOW_LIMITS_IN_STATS = getConfig('SHOW_LIMITS_IN_STATS')
+    SHOW_LIMITS_IN_STATS = SHOW_LIMITS_IN_STATS.lower() == 'true'
+except KeyError:
+    SHOW_LIMITS_IN_STATS = False
+try:
+    START_BTN1_NAME = getConfig('START_BTN1_NAME')
+    START_BTN1_URL = getConfig('START_BTN1_URL')
+    if len(START_BTN1_NAME) == 0 or len(START_BTN1_URL) == 0:
+        raise KeyError
+except:
+    START_BTN1_NAME = 'Owner'
+    START_BTN1_URL = 'https://t.me/ak_nh4'
+try:
+    START_BTN2_NAME = getConfig('START_BTN2_NAME')
+    START_BTN2_URL = getConfig('START_BTN2_URL')
+    if len(START_BTN2_NAME) == 0 or len(START_BTN2_URL) == 0:
+        raise KeyError
+except:
+    START_BTN2_NAME = 'Mirror Group'
+    START_BTN2_URL = 'https://t.me/AK_Mirror'
 try:
     FSUB = getConfig('FSUB')
     FSUB = FSUB.lower() == 'true'
-except:
+except BaseException:
     FSUB = False
     LOGGER.info("Force Subscribe is disabled")
 try:
@@ -518,6 +669,12 @@ except KeyError:
     log_info("CHANNEL_USERNAME not provided! Using default @AK_MIRROR")
     CHANNEL_USERNAME = "AK_MIRROR"
 try:
+    CHANNEL_NAME = getConfig("CHANNEL_NAME")
+    if len(CHANNEL_NAME) == 0:
+        CHANNEL_NAME = 'AK MIRROR'
+except KeyError:
+    CHANNEL_NAME = 'AK MIRROR'
+try:
     FSUB_CHANNEL_ID = getConfig("FSUB_CHANNEL_ID")
     if len(FSUB_CHANNEL_ID) == 0:
         raise KeyError
@@ -525,23 +682,6 @@ try:
 except KeyError:
     log_info("CHANNEL_ID is not provided! Using default id of @AK_Mirror")
     FSUB_CHANNEL_ID = -1001749675401
-try:
-    BOT_PM = getConfig('BOT_PM')
-    BOT_PM = BOT_PM.lower() == 'true'
-except KeyError:
-    BOT_PM = False
-try:
-    CHANNEL_NAME = getConfig('CHANNEL_NAME')
-    if len(CHANNEL_NAME) == 0:
-        CHANNEL_NAME = 'AK-MIRROR'
-except KeyError:
-    CHANNEL_NAME = 'AK-MIRROR'
-try:
-    TITLE_NAME = getConfig('TITLE_NAME')
-    if len(TITLE_NAME) == 0:
-        TITLE_NAME = 'AK-Mirror-Leech-Bot'
-except KeyError:
-    TITLE_NAME = 'AK-Mirror-Leech-Bot'
 try:
     TOKEN_PICKLE_URL = getConfig('TOKEN_PICKLE_URL')
     if len(TOKEN_PICKLE_URL) == 0:
@@ -627,9 +767,18 @@ try:
     SEARCH_PLUGINS = getConfig('SEARCH_PLUGINS')
     if len(SEARCH_PLUGINS) == 0:
         raise KeyError
-    SEARCH_PLUGINS = jsnloads(SEARCH_PLUGINS)
+    SEARCH_PLUGINS = jsonloads(SEARCH_PLUGINS)
 except:
     SEARCH_PLUGINS = None
+try:
+    IMAGE_URL = getConfig('IMAGE_URL')
+except KeyError:
+    IMAGE_URL = 'https://graph.org/file/6b22ef7b8a733c5131d3f.jpg'
+try:
+    TELEGRAPH_STYLE = getConfig('TELEGRAPH_STYLE')
+    TELEGRAPH_STYLE = TELEGRAPH_STYLE.lower() == 'true'
+except:
+    TELEGRAPH_STYLE = False
 
 updater = tgUpdater(token=BOT_TOKEN, request_kwargs={'read_timeout': 20, 'connect_timeout': 15})
 bot = updater.bot

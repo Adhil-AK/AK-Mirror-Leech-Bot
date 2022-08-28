@@ -1,27 +1,26 @@
-from logging import getLogger, WARNING
+from logging import getLogger, ERROR
 from os import remove as osremove, walk, path as ospath, rename as osrename
 from time import time, sleep
 from pyrogram.errors import FloodWait, RPCError
 from PIL import Image
 from threading import RLock
-from bot import DOWNLOAD_DIR, AS_DOCUMENT, AS_DOC_USERS, AS_MEDIA_USERS, CUSTOM_FILENAME, \
+from bot import AS_DOCUMENT, AS_DOC_USERS, AS_MEDIA_USERS, CUSTOM_FILENAME, \
                  EXTENSION_FILTER, app, LEECH_LOG, BOT_PM, tgBotMaxFileSize, premium_session
-from bot.helper.ext_utils.fs_utils import take_ss, get_media_info, get_path_size
+from bot.helper.ext_utils.fs_utils import take_ss, get_media_info, get_media_streams, get_path_size, clean_unwanted
 from bot.helper.ext_utils.bot_utils import get_readable_file_size
 from pyrogram.types import Message
 
 LOGGER = getLogger(__name__)
-getLogger("pyrogram").setLevel(WARNING)
-VIDEO_SUFFIXES = ("MKV", "MP4", "MOV", "WMV", "3GP", "MPG", "WEBM", "AVI", "FLV", "M4V", "GIF")
-AUDIO_SUFFIXES = ("MP3", "M4A", "M4B", "FLAC", "WAV", "AIF", "OGG", "AAC", "DTS", "MID", "AMR", "MKA")
+getLogger("pyrogram").setLevel(ERROR)
 IMAGE_SUFFIXES = ("JPG", "JPX", "PNG", "CR2", "TIF", "BMP", "JXR", "PSD", "ICO", "HEIC", "JPEG")
 class TgUploader:
 
-    def __init__(self, name=None, listener=None):
+    def __init__(self, name=None, path=None, size=0, listener=None):
         self.name = name
         self.uploaded_bytes = 0
         self._last_uploaded = 0
         self.__listener = listener
+        self.__path = path
         self.__start_time = time()
         self.__total_files = 0
         self.__is_cancelled = False
@@ -32,23 +31,32 @@ class TgUploader:
         self.__resource_lock = RLock()
         self.__is_corrupted = False
         self.__sent_msg = app.get_messages(self.__listener.message.chat.id, self.__listener.uid)
+        self.__size = size
         self.__user_settings()
         self.__leech_log = LEECH_LOG.copy()  # copy then pop to keep the original var as it is
         self.__app = app
         self.__user_id = listener.message.from_user.id
         self.isPrivate = listener.message.chat.type in ['private', 'group']
-    def upload(self):
-        path = f"{DOWNLOAD_DIR}{self.__listener.uid}"
-        size = get_readable_file_size(get_path_size(path))
-        for dirpath, subdir, files in sorted(walk(path)):
+
+    def upload(self, o_files):
+        for dirpath, subdir, files in sorted(walk(self.__path)):
             for file_ in sorted(files):
+                if file_ in o_files:
+                    continue
                 if not file_.lower().endswith(tuple(EXTENSION_FILTER)):
-                    self.__total_files += 1
                     up_path = ospath.join(dirpath, file_)
-                    if ospath.getsize(up_path) == 0:
-                        LOGGER.error(f"{up_path} size is zero, telegram don't upload zero size files")
-                        self.__corrupted += 1
-                        continue
+                    self.__total_files += 1
+                    try:
+                        if ospath.getsize(up_path) == 0:
+                            LOGGER.error(f"{up_path} size is zero, telegram don't upload zero size files")
+                            self.__corrupted += 1
+                            continue
+                    except Exception as e:
+                        if self.__is_cancelled:
+                            return
+                        else:
+                            LOGGER.error(e)
+                            continue
                     self.__upload_file(up_path, file_, dirpath)
                     if self.__is_cancelled:
                         return
@@ -56,9 +64,12 @@ class TgUploader:
                         self.__msgs_dict[self.__sent_msg.link] = file_
                     self._last_uploaded = 0
                     sleep(1)
+        if self.__listener.seed and not self.__listener.newDir:
+            clean_unwanted(self.__path)
         if self.__total_files <= self.__corrupted:
             return self.__listener.onUploadError('Files Corrupted. Check logs')
         LOGGER.info(f"Leech Completed: {self.name}")
+        size = get_readable_file_size(self.__size)
         self.__listener.onUploadComplete(None, size, self.__msgs_dict, self.__total_files, self.__corrupted, self.name)
 
     def __upload_file(self, up_path, file_, dirpath):
@@ -74,12 +85,12 @@ class TgUploader:
         thumb = self.__thumb
         self.__is_corrupted = False
         try:
+            is_video, is_audio = get_media_streams(up_path)
             if not self.__as_doc:
-                duration = 0
-                if file_.upper().endswith(VIDEO_SUFFIXES):
+                if is_video:
                     duration = get_media_info(up_path)[0]
                     if thumb is None:
-                        thumb = take_ss(up_path)
+                        thumb = take_ss(up_path, duration)
                         if self.__is_cancelled:
                             if self.__thumb is None and thumb is not None and ospath.lexists(thumb):
                                 osremove(thumb)
@@ -91,7 +102,7 @@ class TgUploader:
                         width = 480
                         height = 320
                     if not file_.upper().endswith(("MKV", "MP4")):
-                        file_ = f'{ospath.splitext(file_)[0]}.mp4'
+                        file_ = f"{ospath.splitext(file_)[0]}.mp4"
                         new_path = ospath.join(dirpath, file_)
                         osrename(up_path, new_path)
                         up_path = new_path
@@ -130,7 +141,7 @@ class TgUploader:
                                                caption=cap_mono)
                             except Exception as err:
                                 LOGGER.error(f"Failed To Send Video in PM:\n{err}")
-                elif file_.upper().endswith(AUDIO_SUFFIXES):
+                elif is_audio:
                     duration , artist, title = get_media_info(up_path)
                     if len(LEECH_LOG) != 0:
                         for leechchat in self.__leech_log:
@@ -195,8 +206,8 @@ class TgUploader:
                 else:
                     notMedia = True
             if self.__as_doc or notMedia:
-                if file_.upper().endswith(VIDEO_SUFFIXES) and thumb is None:
-                    thumb = take_ss(up_path)
+                if is_video and thumb is None:
+                    thumb = take_ss(up_path, None)
                     if self.__is_cancelled:
                         if self.__thumb is None and thumb is not None and ospath.lexists(thumb):
                             osremove(thumb)
@@ -241,8 +252,12 @@ class TgUploader:
             self.__is_corrupted = True
         if self.__thumb is None and thumb is not None and ospath.lexists(thumb):
             osremove(thumb)
-        if not self.__is_cancelled:
-            osremove(up_path)
+        if not self.__is_cancelled and \
+                   (not self.__listener.seed or self.__listener.newDir or dirpath.endswith("splited_files_mltb")):
+            try:
+                osremove(up_path)
+            except:
+                pass
 
     def __upload_progress(self, current, total):
         if self.__is_cancelled:

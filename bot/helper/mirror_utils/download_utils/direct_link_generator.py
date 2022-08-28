@@ -10,17 +10,24 @@ for original authorship. """
 
 from requests import get as rget, head as rhead, post as rpost, Session as rsession
 from re import findall as re_findall, sub as re_sub, match as re_match, search as re_search
+import requests
+import re
+from time import sleep
 from base64 import b64decode
-from urllib.parse import urlparse, unquote
-from json import loads as jsnloads
+from urllib.parse import urlparse, unquote, parse_qs
+from json import loads as jsonloads
 from lk21 import Bypass
 from lxml import etree
 from cfscrape import create_scraper
+import cloudscraper
 from bs4 import BeautifulSoup
 from base64 import standard_b64encode
-from bot import LOGGER, UPTOBOX_TOKEN, CRYPT, APPDRIVE_EMAIL, APPDRIVE_PASS
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+from bot import LOGGER, UPTOBOX_TOKEN, CRYPT, UNIFIED_EMAIL, UNIFIED_PASS, HUBDRIVE_CRYPT, KATDRIVE_CRYPT, DRIVEFIRE_CRYPT
 from bot.helper.telegram_helper.bot_commands import BotCommands
-from bot.helper.ext_utils.bot_utils import is_gdtot_link, is_appdrive_link
+from bot.helper.ext_utils.bot_utils import *
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException
 
 fmed_list = ['fembed.net', 'fembed.com', 'femax20.com', 'fcdn.stream', 'feurl.com', 'layarkacaxxi.icu',
@@ -69,31 +76,21 @@ def direct_link_generator(link: str):
         return krakenfiles(link)
     elif is_gdtot_link(link):
         return gdtot(link)
-    elif is_appdrive_link(link):
-        return appdrive(link)
+    elif is_unified_link(link):
+        return unified(link)
+    elif is_udrive_link(link):
+        return udrive(link)
     elif any(x in link for x in fmed_list):
         return fembed(link)
     elif any(x in link for x in ['sbembed.com', 'watchsb.com', 'streamsb.net', 'sbplay.org']):
         return sbembed(link)
-    elif 'gofile.io' in link:
-        return gofile(link)
     else:
         raise DirectDownloadLinkException(f'No Direct link function found for {link}')
 
 def zippy_share(url: str) -> str:
-    base_url = re_search('http.+.zippyshare.com', url).group()
-    response = rget(url)
-    pages = BeautifulSoup(response.text, "html.parser")
-    js_script = str(pages.find("div", style="margin-left: 24px; margin-top: 20px; text-align: center; width: 303px; height: 105px;"))
-    try:
-        mtk = eval(re_findall(r"\+\((.*?).\+", js_script)[0] + " + 10 + 5/5")
-        uri1 = re_findall(r".href.=.\"/(.*?)/\"", js_script)[0]
-        uri2 = re_findall(r"\)\+\"/(.*?)\"", js_script)[0]
-    except Exception as err:
-        LOGGER.error(err)
-        raise DirectDownloadLinkException("ERROR: Can't Generate direct link")
-    dl_url = f"{base_url}/{uri1}/{int(mtk)}/{uri2}"
-    return dl_url
+    """ ZippyShare direct link generator
+    Based on https://github.com/zevtyardt/lk21 """
+    return Bypass().bypass_zippyshare(url)
 
 def yandex_disk(url: str) -> str:
     """ Yandex.Disk direct link generator
@@ -110,7 +107,7 @@ def yandex_disk(url: str) -> str:
 
 def uptobox(url: str) -> str:
     """ Uptobox direct link generator
-    based on https://github.com/jovanzers/WinTenCermin """
+    based on https://github.com/jovanzers/WinTenCermin and https://github.com/sinoobie/noobie-mirror """
     try:
         link = re_findall(r'\bhttps?://.*uptobox\.com\S+', url)[0]
     except IndexError:
@@ -124,11 +121,24 @@ def uptobox(url: str) -> str:
             dl_url = link
         except:
             file_id = re_findall(r'\bhttps?://.*uptobox\.com/(\w+)', url)[0]
-            file_link = f'https://uptobox.com/api/link?token={UPTOBOX_TOKEN}&file_code={file_id}'
-
+            file_link = 'https://uptobox.com/api/link?token=%s&file_code=%s' % (UPTOBOX_TOKEN, file_id)
             req = rget(file_link)
             result = req.json()
-            dl_url = result['data']['dlLink']
+            if result['message'].lower() == 'success':
+                dl_url = result['data']['dlLink']
+            elif result['message'].lower() == 'waiting needed':
+                waiting_time = result["data"]["waiting"] + 1
+                waiting_token = result["data"]["waitingToken"]
+                sleep(waiting_time)
+                req2 = rget(f"{file_link}&waitingToken={waiting_token}")
+                result2 = req2.json()
+                dl_url = result2['data']['dlLink']
+            elif result['message'].lower() == 'you need to wait before requesting a new download link':
+                cooldown = divmod(result['data']['waiting'], 60)
+                raise DirectDownloadLinkException(f"ERROR: Uptobox is being limited please wait {cooldown[0]} min {cooldown[1]} sec.")
+            else:
+                LOGGER.info(f"UPTOBOX_ERROR: {result}")
+                raise DirectDownloadLinkException(f"ERROR: {result['message']}")
     return dl_url
 
 def mediafire(url: str) -> str:
@@ -140,6 +150,7 @@ def mediafire(url: str) -> str:
     page = BeautifulSoup(rget(link).content, 'lxml')
     info = page.find('a', {'aria-label': 'Download file'})
     return info.get('href')
+
 
 def osdn(url: str) -> str:
     """ OSDN direct link generator """
@@ -236,9 +247,7 @@ def pixeldrain(url: str) -> str:
     if resp["success"]:
         return dl_link
     else:
-        raise DirectDownloadLinkException(
-            f"""ERROR: Cant't download due {resp["message"]}."""
-        )
+        raise DirectDownloadLinkException(f"ERROR: Cant't download due {resp['message']}.")
 
 def antfiles(url: str) -> str:
     """ Antfiles direct link generator
@@ -301,29 +310,28 @@ def fichier(link: str) -> str:
           raise DirectDownloadLinkException("ERROR: Unable to generate Direct Link 1fichier!")
         else:
           return dl_url
-    elif len(soup.find_all("div", {"class": "ct_warn"})) == 2:
+    elif len(soup.find_all("div", {"class": "ct_warn"})) == 3:
         str_2 = soup.find_all("div", {"class": "ct_warn"})[-1]
         if "you must wait" in str(str_2).lower():
-            if numbers := [
-                int(word) for word in str(str_2).split() if word.isdigit()
-            ]:
-                raise DirectDownloadLinkException(f"ERROR: 1fichier is on a limit. Please wait {numbers[0]} minute.")
-            else:
+            numbers = [int(word) for word in str(str_2).split() if word.isdigit()]
+            if not numbers:
                 raise DirectDownloadLinkException("ERROR: 1fichier is on a limit. Please wait a few minutes/hour.")
+            else:
+                raise DirectDownloadLinkException(f"ERROR: 1fichier is on a limit. Please wait {numbers[0]} minute.")
         elif "protect access" in str(str_2).lower():
           raise DirectDownloadLinkException(f"ERROR: This link requires a password!\n\n<b>This link requires a password!</b>\n- Insert sign <b>::</b> after the link and write the password after the sign.\n\n<b>Example:</b>\n<code>/{BotCommands.MirrorCommand} https://1fichier.com/?smmtd8twfpm66awbqz04::love you</code>\n\n* No spaces between the signs <b>::</b>\n* For the password, you can use a space!")
         else:
-            raise DirectDownloadLinkException("ERROR: Error trying to generate Direct Link from 1fichier!")
-    elif len(soup.find_all("div", {"class": "ct_warn"})) == 3:
+            print(str_2)
+            raise DirectDownloadLinkException("ERROR: Failed to generate Direct Link from 1fichier!")
+    elif len(soup.find_all("div", {"class": "ct_warn"})) == 4:
         str_1 = soup.find_all("div", {"class": "ct_warn"})[-2]
         str_3 = soup.find_all("div", {"class": "ct_warn"})[-1]
         if "you must wait" in str(str_1).lower():
-            if numbers := [
-                int(word) for word in str(str_1).split() if word.isdigit()
-            ]:
-                raise DirectDownloadLinkException(f"ERROR: 1fichier is on a limit. Please wait {numbers[0]} minute.")
-            else:
+            numbers = [int(word) for word in str(str_1).split() if word.isdigit()]
+            if not numbers:
                 raise DirectDownloadLinkException("ERROR: 1fichier is on a limit. Please wait a few minutes/hour.")
+            else:
+                raise DirectDownloadLinkException(f"ERROR: 1fichier is on a limit. Please wait {numbers[0]} minute.")
         elif "bad password" in str(str_3).lower():
           raise DirectDownloadLinkException("ERROR: The password you entered is wrong!")
         else:
@@ -340,7 +348,7 @@ def solidfiles(url: str) -> str:
     }
     pageSource = rget(url, headers = headers).text
     mainOptions = str(re_search(r'viewerOptions\'\,\ (.*?)\)\;', pageSource).group(1))
-    return jsnloads(mainOptions)["downloadUrl"]
+    return jsonloads(mainOptions)["downloadUrl"]
 
 def krakenfiles(page_link: str) -> str:
     """ krakenfiles direct link generator
@@ -358,8 +366,8 @@ def krakenfiles(page_link: str) -> str:
         for item in soup.find_all("div", attrs={"data-file-hash": True})
     ]
     if not hashes:
-        raise DirectDownloadLinkException(
-            f"Hash not found for : {page_link}")
+        raise DirectDownloadLinkException(f"ERROR: Hash not found for : {page_link}")
+
 
     dl_hash = hashes[0]
 
@@ -378,8 +386,8 @@ def krakenfiles(page_link: str) -> str:
     if "url" in dl_link_json:
         return dl_link_json["url"]
     else:
-        raise DirectDownloadLinkException(
-            f"Failed to acquire download URL from kraken for : {page_link}")
+        raise DirectDownloadLinkException(f"ERROR: Failed to acquire download URL from kraken for : {page_link}")
+
 
 def gdtot(url: str) -> str:
     """ Gdtot google drive link generator
@@ -401,40 +409,16 @@ def gdtot(url: str) -> str:
         raise DirectDownloadLinkException("ERROR: Try in your broswer, mostly file not found or user limit exceeded!")
     return f'https://drive.google.com/open?id={decoded_id}'
 
-def gofile(url: str) -> str:
-    try:
-        api_uri = 'https://api.gofile.io'
-        client = rsession()
-        res = client.get(f'{api_uri}/createAccount').json()
-        data = {
-            'contentId': url.split('/')[-1],
-            'token': res['data']['token'],
-            'websiteToken': 'websiteToken',
-            'cache': 'true'
-        }
-        res = client.get(f'{api_uri}/getContent', params=data).json()
-        content = list(res['data']['contents'].values())
-        return content[0]['directLink']
-    except:
-        raise DirectDownloadLinkException("ERROR: Error trying to generate Direct Link from gofile!")
-    return f'https://drive.google.com/open?id={decoded_id}'
-
 account = {
-   'email': APPDRIVE_EMAIL,
-    'passwd': APPDRIVE_PASS
-    }
+    'email': UNIFIED_EMAIL, 
+   'passwd': UNIFIED_PASS
+}
 def account_login(client, url, email, password):
-    """ AppDrive google drive link generator
-    By https://github.com/xcscxr """
-
-    if APPDRIVE_EMAIL is None:
-        raise DirectDownloadLinkException("ERROR: Appdrive  Email Password not provided")
     data = {
         'email': email,
         'password': password
     }
     client.post(f'https://{urlparse(url).netloc}/login', data=data)
-
 def gen_payload(data, boundary=f'{"-"*6}_'):
     data_string = ''
     for item in data:
@@ -443,61 +427,142 @@ def gen_payload(data, boundary=f'{"-"*6}_'):
     data_string += f'{boundary}--\r\n'
     return data_string
 
-def parse_info(data):
-    info = re_findall(r'>(.*?)<\/li>', data)
+def parse_infou(data):
+    info = re_findall('>(.*?)<\/li>', data)
     info_parsed = {}
     for item in info:
-        kv = [s.strip() for s in item.split(':', maxsplit=1)]
+        kv = [s.strip() for s in item.split(':', maxsplit = 1)]
         info_parsed[kv[0].lower()] = kv[1]
     return info_parsed
 
-def appdrive(url: str) -> str:
-    client = rsession()
+def unified(url: str) -> str:
+    if (UNIFIED_EMAIL or UNIFIED_PASS) is None:
+        raise DirectDownloadLinkException("UNIFIED_EMAIL and UNIFIED_PASS env vars not provided")
+    client = cloudscraper.create_scraper(delay=10, browser='chrome')
     client.headers.update({
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
     })
-
     account_login(client, url, account['email'], account['passwd'])
-
     res = client.get(url)
-    key = re_findall(r'"key",\s+"(.*?)"', res.text)[0]
-
+    key = re_findall('"key",\s+"(.*?)"', res.text)[0]
     ddl_btn = etree.HTML(res.content).xpath("//button[@id='drc']")
-
-    info_parsed = parse_info(res.text)
+    info_parsed = parse_infou(res.text)
     info_parsed['error'] = False
-    info_parsed['link_type'] = 'login' # direct/login
-
+    info_parsed['link_type'] = 'login'  # direct/login
     headers = {
         "Content-Type": f"multipart/form-data; boundary={'-'*4}_",
     }
-
     data = {
         'type': 1,
         'key': key,
         'action': 'original'
     }
-
     if len(ddl_btn):
         info_parsed['link_type'] = 'direct'
         data['action'] = 'direct'
-
     while data['type'] <= 3:
         try:
             response = client.post(url, data=gen_payload(data), headers=headers).json()
             break
         except: data['type'] += 1
-
     if 'url' in response:
         info_parsed['gdrive_link'] = response['url']
     elif 'error' in response and response['error']:
         info_parsed['error'] = True
         info_parsed['error_message'] = response['message']
-    if urlparse(url).netloc == 'driveapp.in' and not info_parsed['error']:
+    else:
+        info_parsed['error'] = True
+        info_parsed['error_message'] = 'Something went wrong :('
+
+    if info_parsed['error']:
+        raise DirectDownloadLinkException(f"ERROR! {info_parsed['error_message']}")
+
+    if urlparse(url).netloc == 'appdrive.info':
+        flink = info_parsed['gdrive_link']
+        return flink
+
+    elif urlparse(url).netloc == 'driveapp.in':
         res = client.get(info_parsed['gdrive_link'])
         drive_link = etree.HTML(res.content).xpath("//a[contains(@class,'btn')]/@href")[0]
-        info_parsed['gdrive_link'] = drive_link
-    if not info_parsed['error']:
-        return info_parsed
+        flink = drive_link
+        return flink
+
     else:
-        raise DirectDownloadLinkException(f"{info_parsed['error_message']}")
+        res = client.get(info_parsed['gdrive_link'])
+        drive_link = etree.HTML(res.content).xpath("//a[contains(@class,'btn btn-primary')]/@href")[0]
+        flink = drive_link
+        info_parsed['src_url'] = url
+        return flink
+
+def parse_info(res, url):
+    info_parsed = {}
+    if 'drivebuzz' in url:
+        info_chunks = re.findall('<td\salign="right">(.*?)<\/td>', res.text)
+    else:
+        info_chunks = re_findall('>(.*?)<\/td>', res.text)
+    for i in range(0, len(info_chunks), 2):
+        info_parsed[info_chunks[i]] = info_chunks[i+1]
+    return info_parsed
+
+def udrive(url: str) -> str:
+    if 'katdrive' or 'hubdrive'  in url:
+      client = rsession()
+    else:
+      client = cloudscraper.create_scraper(delay=10, browser='chrome')
+
+    if 'hubdrive' in url:
+        if "hubdrive.in" in url:
+            url = url.replace(".in",".pro")
+        client.cookies.update({'crypt': HUBDRIVE_CRYPT})
+    if 'drivehub' in url:
+        client.cookies.update({'crypt': KATDRIVE_CRYPT})
+    if 'katdrive' in url:
+        client.cookies.update({'crypt': KATDRIVE_CRYPT})
+    if 'kolop' in url:
+        client.cookies.update({'crypt': KATDRIVE_CRYPT})
+    if 'drivefire' in url:
+        client.cookies.update({'crypt': DRIVEFIRE_CRYPT})
+    if 'drivebuzz' in url:
+        client.cookies.update({'crypt': DRIVEFIRE_CRYPT})
+
+    res = client.get(url)
+    info_parsed = parse_info(res, url)
+
+
+    info_parsed['error'] = False
+
+    up = urlparse(url)
+    req_url = f"{up.scheme}://{up.netloc}/ajax.php?ajax=download"
+
+    file_id = url.split('/')[-1]
+
+    data = { 'id': file_id }
+
+    headers = {
+        'x-requested-with': 'XMLHttpRequest'
+    }
+
+    try:
+        res = client.post(req_url, headers=headers, data=data).json()['file']
+    except: return {'error': True, 'src_url': url}
+
+    if 'drivefire' in url:
+        decoded_id = res.rsplit('/', 1)[-1]
+        flink = f"https://drive.google.com/file/d/{decoded_id}"
+        return flink
+    elif 'drivehub' in url:
+        gd_id = res.rsplit("=", 1)[-1]
+        flink = f"https://drive.google.com/open?id={gd_id}"
+        return flink
+    elif 'drivebuzz' in url:
+        gd_id = res.rsplit("=", 1)[-1]
+        flink = f"https://drive.google.com/open?id={gd_id}"
+        return flink
+    else:
+        gd_id = re_findall('gd=(.*)', res, re.DOTALL)[0]
+
+    info_parsed['gdrive_url'] = f"https://drive.google.com/open?id={gd_id}"
+    info_parsed['src_url'] = url
+    flink = info_parsed['gdrive_url']
+
+    return flink 

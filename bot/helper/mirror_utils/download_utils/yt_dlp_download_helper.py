@@ -4,14 +4,17 @@ from logging import getLogger
 from yt_dlp import YoutubeDL, DownloadError
 from threading import RLock
 from time import time
+from json import loads as jsonloads
 from re import search as re_search
-from bot import download_dict_lock, download_dict, STORAGE_THRESHOLD, LEECH_LIMIT
+
+from bot import download_dict_lock, download_dict, STORAGE_THRESHOLD
 from bot.helper.ext_utils.bot_utils import get_readable_file_size
 from bot.helper.telegram_helper.message_utils import sendStatusMessage
 from ..status_utils.youtube_dl_download_status import YoutubeDLDownloadStatus
 from bot.helper.ext_utils.fs_utils import check_storage_threshold
 
 LOGGER = getLogger(__name__)
+
 
 class MyLogger:
     def __init__(self, obj):
@@ -20,9 +23,8 @@ class MyLogger:
     def debug(self, msg):
         # Hack to fix changing extension
         if not self.obj.is_playlist:
-            if match := re_search(
-                r'.Merger..Merging formats into..(.*?).$', msg
-            ) or re_search(r'.ExtractAudio..Destination..(.*?)$', msg):
+            if match := re_search(r'.Merger..Merging formats into..(.*?).$', msg) or \
+                        re_search(r'.ExtractAudio..Destination..(.*?)$', msg):
                 LOGGER.info(msg)
                 newname = match.group(1)
                 newname = newname.rsplit("/", 1)[-1]
@@ -36,6 +38,7 @@ class MyLogger:
     def error(msg):
         if msg != "ERROR: Cancelling...":
             LOGGER.error(msg)
+
 
 class YoutubeDLHelper:
     def __init__(self, listener):
@@ -55,13 +58,14 @@ class YoutubeDLHelper:
         self.opts = {'progress_hooks': [self.__onDownloadProgress],
                      'logger': MyLogger(self),
                      'usenetrc': True,
-                     'prefer_ffmpeg': True,
                      'cookiefile': 'cookies.txt',
                      'allow_multiple_video_streams': True,
                      'allow_multiple_audio_streams': True,
                      'trim_file_name': 200,
                      'noprogress': True,
-                     'ffmpeg_location': '/bin/new-api'}
+                     'allow_playlist_files': True,
+                     'overwrites': True,
+                     'ffmpeg_location': '/bin/opera'}
 
     @property
     def download_speed(self):
@@ -112,6 +116,8 @@ class YoutubeDLHelper:
             self.__set_args(args)
         if get_info:
             self.opts['playlist_items'] = '0'
+        if link.startswith(('rtmp', 'mms', 'rstp')):
+            self.opts['external_downloader'] = 'ffmpeg'
         with YoutubeDL(self.opts) as ydl:
             try:
                 result = ydl.extract_info(link, download=False)
@@ -140,7 +146,7 @@ class YoutubeDLHelper:
             ext = realName.split('.')[-1]
             if name == "":
                 newname = str(realName).split(f" [{result['id'].replace('*', '_')}]")
-                self.name = f'{newname[0]}.{ext}' if len(newname) > 1 else newname[0]
+                self.name = newname[0] + '.' + ext if len(newname) > 1 else newname[0]
             else:
                 self.name = f"{name}.{ext}"
 
@@ -165,11 +171,11 @@ class YoutubeDLHelper:
             self.is_playlist = True
         self.__gid = ''.join(SystemRandom().choices(ascii_letters + digits, k=10))
         self.__onDownloadStart()
-        if qual.startswith('ba/b'):
-            audio_info = qual.split('-')
-            qual = audio_info[0]
-            rate = audio_info[1] if len(audio_info) == 2 else 320
-            self.opts['postprocessors'] = [{'key': 'FFmpegExtractAudio','preferredcodec': 'mp3','preferredquality': f'{rate}'}]
+        if qual.startswith('ba/b-'):
+            mp3_info = qual.split('-')
+            qual = mp3_info[0]
+            rate = mp3_info[1]
+            self.opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': rate}]
         self.opts['format'] = qual
         LOGGER.info(f"Downloading with YT-DLP: {link}")
         self.extractMetaData(link, name, args)
@@ -179,12 +185,6 @@ class YoutubeDLHelper:
             acpt = check_storage_threshold(self.size, self.__listener.isZip)
             if not acpt:
                 msg = f'You must leave {STORAGE_THRESHOLD}GB free storage.'
-                msg += f'\nYour File/Folder size is {get_readable_file_size(self.size)}'
-                return self.__onDownloadError(msg)
-        if LEECH_LIMIT is not None:
-            acpt = check_storage_threshold(self.size, self.__listener.isLeech)
-            if not acpt:
-                msg = f'Leech Limit is: {LEECH_LIMIT}GB.'
                 msg += f'\nYour File/Folder size is {get_readable_file_size(self.size)}'
                 return self.__onDownloadError(msg)
         if self.is_playlist:
@@ -206,11 +206,18 @@ class YoutubeDLHelper:
     def __set_args(self, args):
         args = args.split('|')
         for arg in args:
-            xy = arg.split(':')
-            if xy[1].startswith('^'):
-                xy[1] = int(xy[1].split('^')[1])
-            elif xy[1].lower() == 'true':
-                xy[1] = True
-            elif xy[1].lower() == 'false':
-                xy[1] = False
-            self.opts[xy[0]] = xy[1]
+            xy = arg.split(':', 1)
+            karg = xy[0].strip()
+            varg = xy[1].strip()
+            if varg.startswith('^'):
+                varg = int(varg.split('^')[1])
+            elif varg.lower() == 'true':
+                varg = True
+            elif varg.lower() == 'false':
+                varg = False
+            elif varg.startswith('(') and varg.endswith(')'):
+                varg = varg.replace('(', '').replace(')', '')
+                varg = tuple(map(int, varg.split(',')))
+            elif varg.startswith('{') and varg.endswith('}'):
+                varg = jsonloads(varg)
+            self.opts[karg] = varg
